@@ -8,17 +8,35 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.2/font/bootstrap-icons.css">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4" crossorigin="anonymous"></script>
     <link rel="stylesheet" data-name="vs/editor/editor.main" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.34.1/min/vs/editor/editor.main.min.css">
+
+    <style>
+        .editButton {
+            border: none;
+            background: none;
+            margin: 0;
+            padding: 0;
+            color: dodgerblue;
+            visibility: hidden;
+        }
+
+        .editButton:hover {
+            color: blue;
+        }
+
+        .buttonParent:hover .editButton {
+            visibility: visible;
+        }
+    </style>
 </head>
 <body>
 
 <h1 style="text-align: center">Xmas Lights</h1>
-<table class="table table-hover">
+<table style="width: auto; margin-left: auto; margin-right: auto" class="table table-hover">
     <thead>
         <tr>
-            <th>Active</th>
+            <th></th>
             <th>Name</th>
             <th>Author</th>
-            <th>ID</th>
             <th></th>
         </tr>
     </thead>
@@ -70,11 +88,11 @@
     // a web worker through a same-domain script
     window.MonacoEnvironment = {
         getWorkerUrl: function(workerId, label) {
-            return `data:text/javascript;charset=utf-8,${encodeURIComponent(`
-        self.MonacoEnvironment = {
-          baseUrl: 'https://unpkg.com/monaco-editor@latest/min/'
-        };
-        importScripts('https://unpkg.com/monaco-editor@latest/min/vs/base/worker/workerMain.js');`
+            return `data:text/javascript;charset=utf-8,${encodeURIComponent(
+                `self.MonacoEnvironment = {`
+                    `baseUrl: 'https://unpkg.com/monaco-editor@latest/min/'`
+                `};`
+                `importScripts('https://unpkg.com/monaco-editor@latest/min/vs/base/worker/workerMain.js');`
             )}`;
         }
     };
@@ -94,42 +112,45 @@
                     theme: 'vs-dark',
                 });
             }
-            monacoEditor.setValue(atob(patterns[patternId].script));
+            monacoEditor.setValue(patterns[patternId].script);
         });
         editPatternName.value = patterns[patternId].name;
         editPatternAuthor.value = patterns[patternId].author;
         myModal.show();
     }
 
-    patternsJson = "eyJ1aWhzYWR1aGEiOnsiYWN0aXZlIjp0cnVlLCJuYW1lIjoiU3RhdGljIGdyZWVuL3JlZCIsImF1dGhvciI6IkpvZWwiLCJkYXRlIjoiVG9kYXkiLCJzY3JpcHQiOiJhV1lnYkdWa0lDVWdNaUE5UFNBd09nb2dJQ0FnY21WMGRYSnVJREkxTlN3Z01Dd2dNQXBsYkhObE9nb2dJQ0FnY21WMGRYSnVJREFzSURJMU5Td2dNQT09In0sImRzYWZxd3dlYSI6eyJhY3RpdmUiOmZhbHNlLCJuYW1lIjoiU3RhdGljIHdoaXRlIiwiYXV0aG9yIjoiSm9lbCIsImRhdGUiOiJUb2RheSIsInNjcmlwdCI6ImNtVjBkWEp1SURJMU5Td2dNalUxTENBeU5UVT0ifX0=";
-    let patterns = JSON.parse(atob(patternsJson));
+    patternsJson = "{\"dsafqwwea\": {\"active\": false, \"author\": \"Joel\", \"name\": \"Static white\", \"date\": \"Today\", \"script\": \"return 255, 255, 255\"}, \"uihsaduha\": {\"active\": true, \"author\": \"Joel\", \"name\": \"Static green/red\", \"date\": \"Today\", \"script\": \"if led % 2 == 0:\\n    return 255, 0, 0\\nelse:\\n    return 0, 255, 0\"}}";
+    let patterns = JSON.parse(patternsJson);
     const table = document.getElementById("patternsTable");
     for (const [patternId, pattern] of Object.entries(patterns)) {
         let newRow = document.createElement("tr");
+
         let activeTd = document.createElement("td");
         if(pattern.active) {
-            activeTd.innerHTML = '<div style="text-align: left">✓</div>';
+            activeTd.innerHTML = '<div style="text-align: center"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" class="bi bi-play-fill" viewBox="0 0 16 16"><path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/></svg></div>';
         }
+        newRow.appendChild(activeTd);
+
         let nameTd = document.createElement("td");
         nameTd.innerText = pattern.name;
+        newRow.appendChild(nameTd);
+
         let authorTd = document.createElement("td");
         authorTd.innerText = pattern.author;
-        let idTd = document.createElement("td");
-        idTd.innerText = patternId;
+        newRow.appendChild(authorTd);
 
+        let editButtonTd = document.createElement("td");
         let editButton = document.createElement("button");
         editButton.innerText = "Edit";
         editButton.type = "button";
-        editButton.className = "btn btn-primary";
+        editButton.className = "editButton";
         editButton.onclick = () => {
             editPattern(patternId);
         }
+        editButtonTd.appendChild(editButton)
+        newRow.appendChild(editButtonTd);
 
-        newRow.appendChild(activeTd);
-        newRow.appendChild(nameTd);
-        newRow.appendChild(authorTd);
-        newRow.appendChild(idTd);
-        newRow.appendChild(editButton);
+        newRow.className = "buttonParent";
         table.appendChild(newRow);
     }
 </script>
