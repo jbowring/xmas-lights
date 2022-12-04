@@ -1,0 +1,7 @@
+{
+  "name": "xmas-lights",
+  "version": "1.0.0",
+  "dependencies": {
+    "html-minifier": "^4.0.0"
+  }
+}
