@@ -1,18 +1,43 @@
 import network
-import socket
+import usocket
 import urequests
 import time
 import json
 import html
 import secrets
+import sys
+import machine
+import uasyncio
 
-from machine import Pin
-
-led = Pin('LED', Pin.OUT)
 
 wlan = network.WLAN(network.STA_IF)
 wlan.active(True)
-wlan.connect(secrets.wifi_ssid, secrets.wifi_password)
+wlan.config(pm=0xa11140)
+
+
+def reconnect_wifi():
+    if wlan.status() != network.STAT_GOT_IP:
+        wlan.disconnect()
+    while wlan.status() != network.STAT_GOT_IP:
+        if wlan.status() == network.STAT_WRONG_PASSWORD:
+            raise RuntimeError('wrong WiFi password')
+            sys.exit()
+        elif wlan.status() != network.STAT_CONNECTING:
+            wlan.connect(secrets.wifi_ssid, secrets.wifi_password)
+
+        print('waiting for connection...')
+        time.sleep(0.5)
+
+    print('connected')
+    ip_address = wlan.ifconfig()[0]
+    print(f'ip = {ip_address}')
+
+    request = urequests.get(secrets.ddns_url + f'&myip={ip_address}')
+    print(request.content)
+    request.close()
+
+
+led = machine.Pin('LED', machine.Pin.OUT)
 
 patterns = {
     "uihsaduha": {
@@ -33,46 +58,34 @@ patterns = {
 
 html = html.generate_html(json.dumps(json.dumps(patterns)))
 
-max_wait = 10
-while max_wait > 0:
-    if wlan.status() < 0 or wlan.status() >= 3:
-        break
-    max_wait -= 1
-    print('waiting for connection...')
-    time.sleep(1)
+reconnect_wifi()
 
-if wlan.status() != 3:
-    raise RuntimeError('network connection failed')
-else:
-    print('connected')
-    status = wlan.ifconfig()
-    print('ip = ' + status[0])
 
-request = urequests.get(secrets.ddns_url + f'&myip={status[0]}')
-print(request.content)
-request.close()
+async def serve_client(reader, writer):
+    print("Client connected")
+    request_line = await reader.readline()
+    print("Request:", request_line)
 
-addr = socket.getaddrinfo('0.0.0.0', 80)[0][-1]
+    while await reader.readline() != b'\r\n':
+        pass
 
-s = socket.socket()
-s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-s.bind(addr)
-s.listen(1)
+    writer.write('HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n')
+    writer.write(html)
+    await writer.drain()
+    await writer.wait_closed()
+    print("Client disconnected")
 
-print('listening on', addr)
 
-# Listen for connections
-while True:
-    try:
-        cl, addr = s.accept()
-        print('client connected from', addr)
-        request = cl.recv(1024)
-        print(request)
+async def main():
+    print('Setting up webserver...')
+    uasyncio.get_event_loop().create_task(uasyncio.start_server(serve_client, "0.0.0.0", 80))
+    while True:
+        led.on()
+        await uasyncio.sleep(0.25)
+        led.off()
+        await uasyncio.sleep(5)
 
-        cl.send('HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n')
-        cl.sendall(html)
-        cl.close()
-
-    except OSError as e:
-        cl.close()
-        print('connection closed')
+try:
+    uasyncio.run(main())
+finally:
+    uasyncio.new_event_loop()
