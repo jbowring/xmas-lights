@@ -1,5 +1,6 @@
 import network
 import socket
+import urequests
 import time
 import json
 import html
@@ -45,7 +46,11 @@ if wlan.status() != 3:
 else:
     print('connected')
     status = wlan.ifconfig()
-    print( 'ip = ' + status[0] )
+    print('ip = ' + status[0])
+
+request = urequests.get(secrets.ddns_url + f'&myip={status[0]}')
+print(request.content)
+request.close()
 
 addr = socket.getaddrinfo('0.0.0.0', 80)[0][-1]
 
