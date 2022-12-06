@@ -30,16 +30,33 @@
         }
 
         .editButton:hover {
-            color: blue;
+            color: #0066ff;
         }
 
         .buttonParent:hover .editButton {
             visibility: visible;
         }
 
+        .deleteButton {
+            border: none;
+            background: none;
+            margin: 0;
+            padding: 0 0 0 10px;
+            color: indianred;
+            visibility: hidden;
+        }
+
+        .deleteButton:hover {
+            color: red;
+        }
+
+        .buttonParent:hover .deleteButton {
+            visibility: visible;
+        }
+
         .activeDiv {
             display:flex;
-            justify-content:center;
+            justify-content:left;
         }
 
         .errorButton {
@@ -100,7 +117,7 @@
             <th>Status</th>
             <th>Name</th>
             <th>Author</th>
-            <th></th>
+            <th>Actions</th>
         </tr>
     </thead>
     <tbody id="patternsTable"></tbody>
@@ -227,10 +244,6 @@
         let errorButton = document.createElement("button");
         errorButton.innerHTML = "<h6 style=\"margin: 0\"><i class=\"bi bi-exclamation-circle\"></i></h6>";
         errorButton.className = "errorButton";
-        errorButton.setAttribute("data-bs-toggle", "tooltip")
-        errorButton.setAttribute("data-bs-placement", "bottom")
-        errorButton.setAttribute("data-bs-custom-class", "error-tooltip")
-        errorButton.setAttribute("data-bs-html", "true")
 
         let activeDiv = document.createElement("div");
         activeDiv.className = "activeDiv"
@@ -257,8 +270,14 @@
 
         if(pattern.hasOwnProperty('error') && pattern.error !== null) {
             errorButton.setAttribute("data-bs-title", escapeHtml(pattern.error).replaceAll('\\n', '<br>'))
-            activeDiv.appendChild(errorButton);
+            errorButton.setAttribute("data-bs-toggle", "tooltip")
+            errorButton.setAttribute("data-bs-placement", "bottom")
+            errorButton.setAttribute("data-bs-custom-class", "error-tooltip")
+            errorButton.setAttribute("data-bs-html", "true")
+        } else {
+            errorButton.setAttribute("style", "visibility: hidden");
         }
+        activeDiv.appendChild(errorButton);
         activeDiv.appendChild(activeButton)
         activeTd.appendChild(activeDiv);
         newRow.appendChild(activeTd);
@@ -279,7 +298,27 @@
         editButton.onclick = () => {
             editPattern(patternId);
         }
+
+        let deleteButton = document.createElement("button");
+        deleteButton.innerText = "Delete";
+        deleteButton.type = "button";
+        deleteButton.className = "deleteButton";
+        deleteButton.onclick = () => {
+            const xhr = new XMLHttpRequest();
+            xhr.open("DELETE", '/', true);
+
+            xhr.setRequestHeader("Content-Type", "application/json");
+
+            xhr.onreadystatechange = () => {
+                if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
+                    location.reload()
+                }
+            }
+            xhr.send(JSON.stringify({"id": patternId}));
+        }
+
         editButtonTd.appendChild(editButton)
+        editButtonTd.appendChild(deleteButton)
         newRow.appendChild(editButtonTd);
 
         newRow.className = "buttonParent";

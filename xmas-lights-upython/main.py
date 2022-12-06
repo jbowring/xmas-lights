@@ -101,12 +101,27 @@ async def serve_client(reader, writer):
     request = HttpRequest(raw_request)
     print("Request:", request.request_line)
 
-    if request.request_line.startswith('POST'):
+    if request.request_line.startswith('POST') or request.request_line.startswith('DELETE'):
         try:
             post_data = json.loads(request.body)
         except (IndexError, ValueError):
-            pass  # TODO return error code
-        else:
+            writer.write('HTTP/1.0 400 Bad Request\r\nContent-type: text/plain\r\n\r\n')
+            await writer.drain()
+            await writer.wait_closed()
+            return
+
+        if request.request_line.startswith('DELETE'):
+            try:
+                del patterns[post_data['id']]
+            except KeyError:
+                writer.write('HTTP/1.0 400 Bad Request\r\nContent-type: text/plain\r\n\r\n')
+                await writer.drain()
+                await writer.wait_closed()
+                return
+            else:
+                with open('patterns.json', 'w') as file:
+                    file.write(json.dumps(patterns))
+        elif request.request_line.startswith('POST'):
             json_keys = {
                 'active': bool,
                 'name': str,
