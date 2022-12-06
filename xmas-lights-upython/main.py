@@ -60,23 +60,51 @@ except (OSError, ValueError):
 reconnect_wifi()
 
 
+class HttpRequest:
+    def __init__(self, request: bytes):
+        self.request_text = request.decode("utf8")
+        request_head_body = self.request_text.split('\r\n\r\n', 1)
+        request_header_lines = request_head_body[0].split('\r\n')
+        self.request_line = request_header_lines[0]
+
+        try:
+            self.headers = dict(split.split(': ', 1) for split in request_header_lines[1:-1])
+        except (IndexError, TypeError):
+            self.headers = {}
+
+        try:
+            self.body = request_head_body[1]
+        except IndexError:
+            self.body = ''
+
+
 async def serve_client(reader, writer):
     global reset
-    request = b''
+    raw_request = b''
     while recv := await reader.read(1024):
-        request += recv
+        raw_request += recv
 
         if len(recv) < 1024:
             break
 
-    request = request.decode("utf8")
-    print("Request:", request.split('\r\n')[0])
+    try:
+        content_length = int(HttpRequest(raw_request).headers['Content-Length'])
+        timeout_ms = 1000
+        end_ticks = time.ticks_add(time.ticks_ms(), timeout_ms)
+        while len(HttpRequest(raw_request).body) < content_length and time.ticks_diff(end_ticks, time.ticks_ms()) > 0:
+            raw_request += await uasyncio.wait_for_ms(reader.read(1024), timeout_ms)
+    except (IndexError, ValueError, KeyError, uasyncio.TimeoutError):
+        pass
 
-    if request.startswith('POST'):
+    request = HttpRequest(raw_request)
+    print("Request:", request.request_line)
+
+    if request.request_line.startswith('POST'):
         try:
-            post_data = json.loads(request.split('\r\n\r\n')[1])
+            print(request.request_text)
+            post_data = json.loads(request.body)
         except (IndexError, ValueError):
-            pass
+            pass  # TODO return error code
         else:
             if 'id' in post_data:
                 pattern_id = post_data['id']
@@ -108,10 +136,14 @@ async def serve_client(reader, writer):
                 with open('patterns.json', 'w') as file:
                     file.write(json.dumps(patterns))
 
-    writer.write('HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n')
-    writer.write(html.generate_html(json.dumps(json.dumps(patterns))))
-    await writer.drain()
-    await writer.wait_closed()
+        writer.write('HTTP/1.0 200 OK\r\nContent-type: text/plain\r\n\r\n')
+        await writer.drain()
+        await writer.wait_closed()
+    else:
+        writer.write('HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n')
+        writer.write(html.generate_html(json.dumps(json.dumps(patterns))))
+        await writer.drain()
+        await writer.wait_closed()
 
 
 async def main():
@@ -133,13 +165,11 @@ async def main():
                     current_pattern = pattern
                     break
         else:
-            print('sleeping')  # TODO remove
             await uasyncio.sleep(timestep)
             time_seconds += timestep
 
         if current_pattern is None:
             pass  # TODO turn all leds off
-            print('leds off')  # TODO remove
         else:
             for led_index in range(max_leds):
                 try:
@@ -228,7 +258,7 @@ async def main():
                     current_pattern = None
                     for pattern in patterns.values():
                         pattern['active'] = False
-                    raise  # TODO remove
+                    # raise  # TODO remove
                 else:
                     if led_index == 0:
                         print(result)  # TODO remove

@@ -26,6 +26,28 @@
         .buttonParent:hover .editButton {
             visibility: visible;
         }
+
+        .activeButton {
+            border: none;
+            background: none;
+            margin: 0;
+            padding: 0;
+            color: gray;
+            visibility: hidden;
+        }
+
+        .activeButton.active {
+            visibility: visible;
+            color: black;
+        }
+
+        .activeButton:hover {
+            color: black;
+        }
+
+        .buttonParent:hover .activeButton {
+            visibility: visible;
+        }
     </style>
 </head>
 <body>
@@ -126,9 +148,29 @@
         let newRow = document.createElement("tr");
 
         let activeTd = document.createElement("td");
-        if(pattern.active) {
-            activeTd.innerHTML = '<div style="text-align: center"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" class="bi bi-play-fill" viewBox="0 0 16 16"><path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/></svg></div>';
+        let activeButton = document.createElement("button");
+        activeButton.innerHTML = "<h5 style=\"margin: 0\"><i class=\"bi bi-play-fill\"></i></h5>";
+        activeButton.type = "button";
+        activeButton.className = "activeButton";
+        activeButton.onclick = () => {
+            const xhr = new XMLHttpRequest();
+            xhr.open("POST", '/', true);
+
+            //Send the proper header information along with the request
+            xhr.setRequestHeader("Content-Type", "application/json");
+
+            xhr.onreadystatechange = () => { // Call a function when the state changes.
+                if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
+                    console.log(xhr.responseText)
+                    location.reload()
+                }
+            }
+            xhr.send(JSON.stringify({"id": patternId, "active": true}));
         }
+        if(pattern.active) {
+            activeButton.classList.add('active');
+        }
+        activeTd.appendChild(activeButton)
         newRow.appendChild(activeTd);
 
         let nameTd = document.createElement("td");
