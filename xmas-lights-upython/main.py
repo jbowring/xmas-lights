@@ -9,6 +9,8 @@ import secrets
 import neopixel
 import machine
 import uasyncio
+import sys
+import io
 
 max_leds = 40
 # led_strip = neopixel.NeoPixel(max_leds, 0, 22, 'GRB')  # TODO
@@ -101,7 +103,6 @@ async def serve_client(reader, writer):
 
     if request.request_line.startswith('POST'):
         try:
-            print(request.request_text)
             post_data = json.loads(request.body)
         except (IndexError, ValueError):
             pass  # TODO return error code
@@ -129,6 +130,7 @@ async def serve_client(reader, writer):
                 for key, key_type in json_keys.items():
                     if key_valid(post_data, key, key_type):
                         if key == 'active' and post_data[key] is True:
+                            patterns[pattern_id]['error'] = None
                             for pattern in patterns.values():
                                 pattern['active'] = False
                         patterns[pattern_id][key] = post_data[key]
@@ -159,7 +161,6 @@ async def main():
 
     while True:
         if reset:
-            print('reset')  # TODO remove
             reset = False
             time_seconds = 0
             current_pattern = None
@@ -176,6 +177,7 @@ async def main():
         else:
             for led_index in range(max_leds):
                 try:
+                    current_pattern['error'] = None
                     global_scope = {
                         'math': math,
                         'random': random,
@@ -257,14 +259,14 @@ async def main():
                         result.append(value)
                 except Exception as exception:
                     reset = True
-                    current_pattern['error'] = repr(exception)
+                    temp_file = io.StringIO()
+                    sys.print_exception(exception, temp_file)
+                    current_pattern['error'] = temp_file.getvalue().split('\n', 2)[2]
                     current_pattern = None
                     for pattern in patterns.values():
                         pattern['active'] = False
-                    # raise  # TODO remove
                 else:
                     if led_index == 0:
-                        print(result)  # TODO remove
                         led.on() if result[1] > 127 else led.off()
                     # led_strip.set_pixel(led_index, result)  # TODO
 

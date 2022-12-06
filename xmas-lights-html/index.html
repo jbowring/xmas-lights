@@ -10,6 +10,16 @@
     <link rel="stylesheet" data-name="vs/editor/editor.main" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.34.1/min/vs/editor/editor.main.min.css">
 
     <style>
+        .error-tooltip {
+            --bs-tooltip-bg: var(--bs-red);
+            --bs-tooltip-max-width: 500px;
+            --bs-tooltip-opacity: 100;
+        }
+
+        .tooltip-inner {
+            text-align: left;
+        }
+
         .editButton {
             border: none;
             background: none;
@@ -27,6 +37,20 @@
             visibility: visible;
         }
 
+        .activeTd {
+            display:flex;
+            justify-content:center;
+        }
+
+        .errorButton {
+            border: none;
+            background: none;
+            margin: 0;
+            padding: 0 4px 0 0;
+            color: var(--bs-red);
+            cursor: default !important;
+        }
+
         .activeButton {
             border: none;
             background: none;
@@ -34,6 +58,7 @@
             padding: 0;
             color: gray;
             visibility: hidden;
+            alignment: right;
         }
 
         .activeButton .bi-stop-fill {
@@ -72,7 +97,7 @@
 <table style="width: auto; margin-left: auto; margin-right: auto" class="table table-hover">
     <thead>
         <tr>
-            <th></th>
+            <th>Status</th>
             <th>Name</th>
             <th>Author</th>
             <th></th>
@@ -141,6 +166,16 @@
     const editPatternAuthor = document.getElementById("editPatternAuthor");
     let monacoEditor = null;
 
+    function escapeHtml(unsafe)
+    {
+        return unsafe
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
     function editPattern(patternId) {
         require(["vs/editor/editor.main"], function () {
             if(monacoEditor === null) {
@@ -180,13 +215,23 @@
         }
     }
 
-    patternsJson = "{\"dsafqwwea\": {\"active\": false, \"author\": \"Joel\", \"name\": \"Static white\", \"date\": \"Today\", \"script\": \"return 255, 255, 255\"}, \"uihsaduha\": {\"active\": true, \"author\": \"Joel\", \"name\": \"Static green/red\", \"date\": \"Today\", \"script\": \"if led % 2 == 0:\\n    return 255, 0, 0\\nelse:\\n    return 0, 255, 0\"}}";
+    patternsJson = "{\"dsafqwwea\": {\"error\": \"Traceback (most recent call last):\\n File \\\"main.py\\\", line 252, in main\\n File \\\"<string>\\\", line 1\\n SyntaxError: invalid syntax \", \"active\": false, \"author\": \"Joel\", \"name\": \"Static white\", \"date\": \"Today\", \"script\": \"return 255, 255, 255\"}, \"uihsaduha\": {\"active\": true, \"author\": \"Joel\", \"name\": \"Static green/red\", \"date\": \"Today\", \"script\": \"if led % 2 == 0:\\n    return 255, 0, 0\\nelse:\\n    return 0, 255, 0\"}}";
     let patterns = JSON.parse(patternsJson);
     const table = document.getElementById("patternsTable");
     for (const [patternId, pattern] of Object.entries(patterns)) {
         let newRow = document.createElement("tr");
 
         let activeTd = document.createElement("td");
+        activeTd.className = "activeTd";
+
+        let errorButton = document.createElement("button");
+        errorButton.innerHTML = "<h6 style=\"margin: 0\"><i class=\"bi bi-exclamation-circle\"></i></h6>";
+        errorButton.className = "errorButton";
+        errorButton.setAttribute("data-bs-toggle", "tooltip")
+        errorButton.setAttribute("data-bs-placement", "bottom")
+        errorButton.setAttribute("data-bs-custom-class", "error-tooltip")
+        errorButton.setAttribute("data-bs-html", "true")
+
         let activeButton = document.createElement("button");
         activeButton.innerHTML = "<h5 style=\"margin: 0\"><i class=\"bi bi-play-fill\"></i><i class=\"bi bi-stop-fill\"></i></h5>";
         activeButton.type = "button";
@@ -195,12 +240,10 @@
             const xhr = new XMLHttpRequest();
             xhr.open("POST", '/', true);
 
-            //Send the proper header information along with the request
             xhr.setRequestHeader("Content-Type", "application/json");
 
-            xhr.onreadystatechange = () => { // Call a function when the state changes.
+            xhr.onreadystatechange = () => {
                 if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
-                    console.log(xhr.responseText)
                     location.reload()
                 }
             }
@@ -209,7 +252,12 @@
         if(pattern.active) {
             activeButton.classList.add('active');
         }
-        activeTd.appendChild(activeButton)
+
+        if(pattern.hasOwnProperty('error') && pattern.error !== null) {
+            errorButton.setAttribute("data-bs-title", escapeHtml(pattern.error).replaceAll('\\n', '<br>'))
+            activeTd.appendChild(errorButton);
+        }
+        activeTd.appendChild(activeButton);
         newRow.appendChild(activeTd);
 
         let nameTd = document.createElement("td");
@@ -233,6 +281,9 @@
 
         newRow.className = "buttonParent";
         table.appendChild(newRow);
+
+        const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
+        const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))
     }
 </script>
 </body>
