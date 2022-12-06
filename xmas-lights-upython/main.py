@@ -106,25 +106,28 @@ async def serve_client(reader, writer):
         except (IndexError, ValueError):
             pass  # TODO return error code
         else:
-            if 'id' in post_data:
-                pattern_id = post_data['id']
-            else:
-                pattern_id = str(random.getrandbits(32))
-
-            keys = {
+            json_keys = {
                 'active': bool,
                 'name': str,
                 'author': str,
                 'script': str,
             }
 
+            def key_valid(post_data, key, key_type):
+                return key in post_data and isinstance(post_data[key], key_type)
+
+            if key_valid(post_data, 'id', str):
+                pattern_id = post_data['id']
+            else:
+                pattern_id = str(random.getrandbits(32))
+
             # allow partial update if pattern_id already exists
-            if pattern_id in patterns or all(key in post_data and isinstance(post_data[key], key_type) for key, key_type in keys.items()):
+            if pattern_id in patterns or all(key_valid(post_data, key, key_type) for key, key_type in json_keys.items()):
                 if pattern_id not in patterns:
                     patterns[pattern_id] = {}
                 do_reset = patterns[pattern_id].get('active', False) or post_data.get('active', False)
-                for key, key_type in keys.items():
-                    if key in post_data and isinstance(post_data[key], key_type):
+                for key, key_type in json_keys.items():
+                    if key_valid(post_data, key, key_type):
                         if key == 'active' and post_data[key] is True:
                             for pattern in patterns.values():
                                 pattern['active'] = False
