@@ -124,6 +124,19 @@
         table {
             color: #464646 !important;
         }
+
+        #addButton {
+            border: none;
+            background: none;
+            padding: 0;
+            color: gray;
+            margin: -20px auto 0;
+            font-size: 40px;
+        }
+
+        #addButton:hover {
+            color: #464646;
+        }
     </style>
 </head>
 <body>
@@ -140,6 +153,9 @@
     </thead>
     <tbody id="patternsTable"></tbody>
 </table>
+<div style="display: flex">
+    <button id="addButton" type="button" onclick="editPattern(null)">+</button>
+</div>
 
 <div class="modal fade" id="editPatternModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
@@ -160,10 +176,6 @@
                     </div><br>
                     <div class="form-group">
                         <label for="monaco-editor-container">Code:</label>
-                        <details>
-                            <summary class="text-primary">Instructions</summary>
-<!--                            TODO-->
-                        </details>
                         <div id="monaco-editor-container" style="height:400px;border:1px solid black;"></div>
                     </div>
                 </form>
@@ -223,10 +235,29 @@
                     lineNumbersMinChars: 3,
                 });
             }
-            monacoEditor.setValue(patterns[patternId].script);
+            if(patternId === null) {
+                monacoEditor.setValue(
+`# Parameters:
+#   led_index: current LED
+#   max_leds: LEDs in the string
+#   time_seconds: current time as a float (starts at 0.0)
+#
+# Output:
+#   Put list of [R, G, B] values into variable \`result\`
+#   Values mut be between 0 and 255
+
+result = [
+  255 * (time_seconds + led_index)/max_leds,
+  180 * (time_seconds + led_index)/max_leds,
+  123 * (time_seconds + led_index)/max_leds,
+]
+`);
+            } else {
+                editPatternName.value = patterns[patternId].name;
+                editPatternAuthor.value = patterns[patternId].author;
+                monacoEditor.setValue(patterns[patternId].script);
+            }
         });
-        editPatternName.value = patterns[patternId].name;
-        editPatternAuthor.value = patterns[patternId].author;
         myModal.show();
 
         document.getElementById("saveButton").onclick = () => {
@@ -245,7 +276,7 @@
                 "name": editPatternName.value,
                 "author": editPatternAuthor.value,
                 "script": monacoEditor.getValue(),
-                "active": patterns[patternId].active
+                "active": patternId === null ? false : patterns[patternId].active,
             }));
         }
     }
