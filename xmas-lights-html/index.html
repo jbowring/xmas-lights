@@ -213,7 +213,11 @@
     const editPatternAuthor = document.getElementById("editPatternAuthor");
     let monacoEditor = null;
     let lastEdited = null;
-    const placeholderCode = `# Parameters:
+    const placeholderCode = `# Imported modules:
+#   math
+#   random
+#
+# Parameters:
 #   led_index: current LED
 #   max_leds: LEDs in the string
 #   time_seconds: current time as a float (starts at 0.0)
