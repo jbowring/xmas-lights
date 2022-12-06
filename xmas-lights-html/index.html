@@ -36,8 +36,24 @@
             visibility: hidden;
         }
 
+        .activeButton .bi-stop-fill {
+            display: none;
+            color: black;
+        }
+
         .activeButton.active {
             visibility: visible;
+            color: black;
+        }
+
+        .activeButton.active:hover .bi-stop-fill {
+            display: inline-block;
+            visibility: visible;
+            color: black;
+        }
+
+        .activeButton.active:hover .bi-play-fill {
+            display: none;
             color: black;
         }
 
@@ -149,7 +165,7 @@
 
         let activeTd = document.createElement("td");
         let activeButton = document.createElement("button");
-        activeButton.innerHTML = "<h5 style=\"margin: 0\"><i class=\"bi bi-play-fill\"></i></h5>";
+        activeButton.innerHTML = "<h5 style=\"margin: 0\"><i class=\"bi bi-play-fill\"></i><i class=\"bi bi-stop-fill\"></i></h5>";
         activeButton.type = "button";
         activeButton.className = "activeButton";
         activeButton.onclick = () => {
@@ -165,7 +181,7 @@
                     location.reload()
                 }
             }
-            xhr.send(JSON.stringify({"id": patternId, "active": true}));
+            xhr.send(JSON.stringify({"id": patternId, "active": !pattern.active}));
         }
         if(pattern.active) {
             activeButton.classList.add('active');
