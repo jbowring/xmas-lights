@@ -110,7 +110,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary">Save changes</button>
+                <button type="button" class="btn btn-primary" id="saveButton">Save changes</button>
             </div>
         </div>
     </div>
@@ -148,6 +148,9 @@
                     value: 'placeholder',
                     language: 'python',
                     theme: 'vs-dark',
+                    minimap: {enabled: false},
+                    automaticLayout: true,
+                    lineNumbersMinChars: 3,
                 });
             }
             monacoEditor.setValue(patterns[patternId].script);
@@ -155,6 +158,26 @@
         editPatternName.value = patterns[patternId].name;
         editPatternAuthor.value = patterns[patternId].author;
         myModal.show();
+
+        document.getElementById("saveButton").onclick = () => {
+            const xhr = new XMLHttpRequest();
+            xhr.open("POST", '/', true);
+
+            xhr.setRequestHeader("Content-Type", "application/json");
+
+            xhr.onreadystatechange = () => {
+                if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
+                    location.reload()
+                }
+            }
+            xhr.send(JSON.stringify({
+                "id": patternId,
+                "name": editPatternName.value,
+                "author": editPatternAuthor.value,
+                "script": monacoEditor.getValue(),
+                "active": patterns[patternId].active
+            }));
+        }
     }
 
     patternsJson = "{\"dsafqwwea\": {\"active\": false, \"author\": \"Joel\", \"name\": \"Static white\", \"date\": \"Today\", \"script\": \"return 255, 255, 255\"}, \"uihsaduha\": {\"active\": true, \"author\": \"Joel\", \"name\": \"Static green/red\", \"date\": \"Today\", \"script\": \"if led % 2 == 0:\\n    return 255, 0, 0\\nelse:\\n    return 0, 255, 0\"}}";
