@@ -37,7 +37,7 @@
             visibility: visible;
         }
 
-        .activeTd {
+        .activeDiv {
             display:flex;
             justify-content:center;
         }
@@ -94,7 +94,7 @@
 <body>
 
 <h1 style="text-align: center">Xmas Lights</h1>
-<table style="width: auto; margin-left: auto; margin-right: auto" class="table table-hover">
+<table style="width: auto; min-width: 500px; margin-left: auto; margin-right: auto" class="table table-hover">
     <thead>
         <tr>
             <th>Status</th>
@@ -232,6 +232,8 @@
         errorButton.setAttribute("data-bs-custom-class", "error-tooltip")
         errorButton.setAttribute("data-bs-html", "true")
 
+        let activeDiv = document.createElement("div");
+        activeDiv.className = "activeDiv"
         let activeButton = document.createElement("button");
         activeButton.innerHTML = "<h5 style=\"margin: 0\"><i class=\"bi bi-play-fill\"></i><i class=\"bi bi-stop-fill\"></i></h5>";
         activeButton.type = "button";
@@ -255,9 +257,10 @@
 
         if(pattern.hasOwnProperty('error') && pattern.error !== null) {
             errorButton.setAttribute("data-bs-title", escapeHtml(pattern.error).replaceAll('\\n', '<br>'))
-            activeTd.appendChild(errorButton);
+            activeDiv.appendChild(errorButton);
         }
-        activeTd.appendChild(activeButton);
+        activeDiv.appendChild(activeButton)
+        activeTd.appendChild(activeDiv);
         newRow.appendChild(activeTd);
 
         let nameTd = document.createElement("td");
