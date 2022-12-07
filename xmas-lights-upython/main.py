@@ -11,6 +11,7 @@ import machine
 import uasyncio
 import sys
 import io
+import _thread
 
 max_leds = 40
 # led_strip = neopixel.NeoPixel(max_leds, 0, 22, 'GRB')  # TODO
@@ -167,17 +168,22 @@ async def serve_client(reader, writer):
 
 
 async def main():
-    global reset
     print('Setting up webserver...')
     await uasyncio.get_event_loop().create_task(uasyncio.start_server(serve_client, "0.0.0.0", 80))
+    uasyncio.get_event_loop().run_forever()
+
+
+def led_thread():
+    global reset
+    global patterns
     current_pattern = None
     script = None
     global_scope = None
     local_scope = None
     time_seconds = 0
     timestep = 0.1
-    timestep_ms = int(timestep * 1000)
-    next_ticks_ms = None
+    timestep_us = int(timestep * 1e6)
+    last_ticks_us = None
 
     while True:
         if reset:
@@ -256,10 +262,10 @@ async def main():
                     local_scope = {'max_leds': max_leds}
                     break
         else:
-            await uasyncio.sleep_ms(time.ticks_diff(next_ticks_ms, time.ticks_ms()))
+            time.sleep_us(timestep_us + time.ticks_diff(last_ticks_us, time.ticks_us()))
             time_seconds += timestep
 
-        next_ticks_ms = time.ticks_add(time.ticks_ms(), timestep_ms)
+        last_ticks_us = time.ticks_us()
         if current_pattern is None:
             pass  # TODO turn all leds off
         else:
@@ -291,6 +297,8 @@ async def main():
                 pass
                 # led_strip.show()  # TODO
 
+
+_thread.start_new_thread(led_thread, ())
 
 try:
     uasyncio.run(main())
