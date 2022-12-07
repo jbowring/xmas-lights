@@ -172,8 +172,12 @@ async def main():
     await uasyncio.get_event_loop().create_task(uasyncio.start_server(serve_client, "0.0.0.0", 80))
     current_pattern = None
     script = None
+    global_scope = None
+    local_scope = None
     time_seconds = 0
     timestep = 0.1
+    timestep_ms = int(timestep * 1000)
+    next_ticks_ms = None
 
     while True:
         if reset:
@@ -184,20 +188,8 @@ async def main():
             for pattern in patterns.values():
                 if pattern['active']:
                     current_pattern = pattern
-                    break
-        else:
-            await uasyncio.sleep(timestep)
-            time_seconds += timestep
-
-        if current_pattern is None:
-            pass  # TODO turn all leds off
-        else:
-            for led_index in range(max_leds):
-                try:
-                    if script is None:
-                        script = compile(current_pattern['script'], current_pattern['name'], 'exec')
-
                     current_pattern['error'] = None
+                    script = compile(current_pattern['script'], current_pattern['name'], 'exec')
                     global_scope = {
                         'math': math,
                         'random': random,
@@ -261,21 +253,27 @@ async def main():
                             'zip': zip,
                         },
                     }
-                    local_scope = {
-                        'time_seconds': time_seconds,
-                        'led_index': led_index,
-                        'max_leds': max_leds,
-                    }
+                    local_scope = {'max_leds': max_leds}
+                    break
+        else:
+            await uasyncio.sleep_ms(time.ticks_diff(next_ticks_ms, time.ticks_ms()))
+            time_seconds += timestep
+
+        next_ticks_ms = time.ticks_add(time.ticks_ms(), timestep_ms)
+        if current_pattern is None:
+            pass  # TODO turn all leds off
+        else:
+            local_scope['time_seconds'] = time_seconds
+            for led_index in range(max_leds):
+                try:
+                    local_scope['led_index'] = led_index
                     exec(script, global_scope, local_scope)
                     length = len(local_scope['result'])
                     if length != 3:
-                        raise ValueError('function returned ' + str(length) + 'value')
-                    result = []
-                    for i, colour in enumerate(['r', 'g', 'b']):
-                        value = int(local_scope['result'][i])
-                        if not 0 <= value <= 255:
-                            raise ValueError(colour + ' value ' + str(value) + ' must be between 0 and 255')
-                        result.append(value)
+                        raise ValueError(f'function returned {length} values')
+                    result = [int(value) for value in local_scope['result']]
+                    if any(value < 0 or value > 255 for value in result):
+                        raise ValueError(f'result values {result} are not between 0 and 255')
                 except Exception as exception:
                     reset = True
                     temp_file = io.StringIO()
@@ -286,12 +284,12 @@ async def main():
                     if led_index == 0:
                         led.on() if result[1] > 127 else led.off()
                     # led_strip.set_pixel(led_index, result)  # TODO
-
                 if reset:
                     break
-                else:
-                    pass
-                    # led_strip.show()  # TODO
+
+            if not reset:
+                pass
+                # led_strip.show()  # TODO
 
 
 try:
