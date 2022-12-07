@@ -44,7 +44,7 @@ def reconnect_wifi():
         ip_address = new_ip_address
         # TODO make async
         request = urequests.get(secrets.ddns_url + f'&myip={ip_address}')
-        print(request.content)
+        print(request.text)
         request.close()
 
 
@@ -171,6 +171,7 @@ async def main():
     print('Setting up webserver...')
     await uasyncio.get_event_loop().create_task(uasyncio.start_server(serve_client, "0.0.0.0", 80))
     current_pattern = None
+    script = None
     time_seconds = 0
     timestep = 0.1
 
@@ -179,6 +180,7 @@ async def main():
             reset = False
             time_seconds = 0
             current_pattern = None
+            script = None
             for pattern in patterns.values():
                 if pattern['active']:
                     current_pattern = pattern
@@ -192,6 +194,9 @@ async def main():
         else:
             for led_index in range(max_leds):
                 try:
+                    if script is None:
+                        script = compile(current_pattern['script'], current_pattern['name'], 'exec')
+
                     current_pattern['error'] = None
                     global_scope = {
                         'math': math,
@@ -259,9 +264,8 @@ async def main():
                     local_scope = {
                         'time_seconds': time_seconds,
                         'led_index': led_index,
-                        'max_leds': 40,
+                        'max_leds': max_leds,
                     }
-                    script = current_pattern['script']
                     exec(script, global_scope, local_scope)
                     length = len(local_scope['result'])
                     if length != 3:
@@ -277,9 +281,7 @@ async def main():
                     temp_file = io.StringIO()
                     sys.print_exception(exception, temp_file)
                     current_pattern['error'] = temp_file.getvalue().split('\n', 2)[2]
-                    current_pattern = None
-                    for pattern in patterns.values():
-                        pattern['active'] = False
+                    current_pattern['active'] = False
                 else:
                     if led_index == 0:
                         led.on() if result[1] > 127 else led.off()
