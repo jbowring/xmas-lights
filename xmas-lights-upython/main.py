@@ -22,6 +22,11 @@ wlan.config(pm=0xa11140)
 ip_address = ''
 
 
+def traceback(exception) -> str:
+    temp_file = io.StringIO()
+    sys.print_exception(exception, temp_file)
+    return temp_file.getvalue()
+
 def reconnect_wifi():
     global ip_address
 
@@ -43,9 +48,12 @@ def reconnect_wifi():
     if ip_address != new_ip_address:
         ip_address = new_ip_address
         # TODO make async
-        request = urequests.get(secrets.ddns_url + f'&myip={ip_address}')
-        print(request.text)
-        request.close()
+        try:
+            request = urequests.get(secrets.ddns_url + f'&myip={ip_address}')
+            print(request.text)
+            request.close()
+        except OSError as exception:
+            print(traceback(exception))
 
 
 reset = True
@@ -173,114 +181,112 @@ async def main():
     current_pattern = None
     script = None
     global_scope = None
-    local_scope = None
-    time_seconds = 0
-    timestep = 0.05
-    timestep_ms = int(timestep * 1000)
-    last_ticks_ms = None
+    ticks = 0
+    timestep_ms = 50
+    next_ticks_ms = None
 
     while True:
-        if reset:
-            reset = False
-            time_seconds = 0
-            current_pattern = None
-            script = None
-            for pattern in patterns.values():
-                if pattern['active']:
-                    current_pattern = pattern
-                    current_pattern['error'] = None
-                    script = compile(current_pattern['script'], current_pattern['name'], 'exec')
-                    global_scope = {
-                        'math': math,
-                        'random': random,
-                        '__builtins__': {
-                            'abs': abs,
-                            'all': all,
-                            'any': any,
-                            'bin': bin,
-                            'bool': bool,
-                            'bytearray': bytearray,
-                            'bytes': bytes,
-                            'callable': callable,
-                            'chr': chr,
-                            'complex': complex,
-                            'delattr': delattr,
-                            'dict': dict,
-                            'dir': dir,
-                            'divmod': divmod,
-                            'enumerate': enumerate,
-                            'filter': filter,
-                            'float': float,
-                            'frozenset': frozenset,
-                            'getattr': getattr,
-                            'globals': globals,
-                            'hasattr': hasattr,
-                            'hash': hash,
-                            'help': help,
-                            'hex': hex,
-                            'id': id,
-                            'int': int,
-                            'isinstance': isinstance,
-                            'issubclass': issubclass,
-                            'iter': iter,
-                            'len': len,
-                            'list': list,
-                            'locals': locals,
-                            'map': map,
-                            'max': max,
-                            'memoryview': memoryview,
-                            'min': min,
-                            'next': next,
-                            'object': object,
-                            'oct': oct,
-                            'ord': ord,
-                            'pow': pow,
-                            'print': print,
-                            'property': property,
-                            'range': range,
-                            'repr': repr,
-                            'reversed': reversed,
-                            'round': round,
-                            'set': set,
-                            'setattr': setattr,
-                            'slice': slice,
-                            'sorted': sorted,
-                            'str': str,
-                            'sum': sum,
-                            'super': super,
-                            'tuple': tuple,
-                            'type': type,
-                            'zip': zip,
-                        },
-                    }
-                    local_scope = {'max_leds': max_leds}
-                    break
-        else:
-            await uasyncio.sleep_ms(time.ticks_diff(last_ticks_ms, time.ticks_ms())+timestep_ms)
-            time_seconds += timestep
+        try:
+            if reset:
+                reset = False
+                ticks = 0
+                current_pattern = None
+                script = None
+                next_ticks_ms = time.ticks_ms()
+                for pattern in patterns.values():
+                    if pattern['active']:
+                        current_pattern = pattern
+                        current_pattern['error'] = None
+                        print(current_pattern['script'])
+                        script = compile(current_pattern['script'], current_pattern['name'], 'exec')
+                        global_scope = {
+                            'math': math,
+                            'random': random,
+                            '__builtins__': {
+                                'abs': abs,
+                                'all': all,
+                                'any': any,
+                                'bin': bin,
+                                'bool': bool,
+                                'bytearray': bytearray,
+                                'bytes': bytes,
+                                'callable': callable,
+                                'chr': chr,
+                                'complex': complex,
+                                'delattr': delattr,
+                                'dict': dict,
+                                'dir': dir,
+                                'divmod': divmod,
+                                'enumerate': enumerate,
+                                'filter': filter,
+                                'float': float,
+                                'frozenset': frozenset,
+                                'getattr': getattr,
+                                'globals': globals,
+                                'hasattr': hasattr,
+                                'hash': hash,
+                                'help': help,
+                                'hex': hex,
+                                'id': id,
+                                'int': int,
+                                'isinstance': isinstance,
+                                'issubclass': issubclass,
+                                'iter': iter,
+                                'len': len,
+                                'list': list,
+                                'locals': locals,
+                                'map': map,
+                                'max': max,
+                                'memoryview': memoryview,
+                                'min': min,
+                                'next': next,
+                                'object': object,
+                                'oct': oct,
+                                'ord': ord,
+                                'pow': pow,
+                                'print': print,
+                                'property': property,
+                                'range': range,
+                                'repr': repr,
+                                'reversed': reversed,
+                                'round': round,
+                                'set': set,
+                                'setattr': setattr,
+                                'slice': slice,
+                                'sorted': sorted,
+                                'str': str,
+                                'sum': sum,
+                                'super': super,
+                                'tuple': tuple,
+                                'type': type,
+                                'zip': zip,
+                            },
+                            'max_leds': max_leds,
+                            'timestep_ms': timestep_ms,
+                        }
+                        break
+            else:
+                await uasyncio.sleep_ms(time.ticks_diff(next_ticks_ms, time.ticks_ms()))
+                ticks += 1
 
-        last_ticks_ms = time.ticks_ms()
-        if current_pattern is None:
-            pass  # TODO turn all leds off
-        else:
-            local_scope['time_seconds'] = time_seconds
-            try:
-                exec(script, global_scope, local_scope)
-                length = len(local_scope['result'])
+            next_ticks_ms = time.ticks_add(next_ticks_ms, timestep_ms)
+            if current_pattern is None:
+                pass  # TODO turn all leds off
+            else:
+                global_scope['ticks'] = ticks
+                exec(script, global_scope)
                 for led_index in range(max_leds):
                     if led_index == 0:
-                        led.on() if int(local_scope['result'][led_index][1]) > 127 else led.off()
+                        led.on() if int(global_scope['result'][led_index][1]) > 127 else led.off()
                     # led_strip.set_pixel(led_index, result)  # TODO
-            except Exception as exception:
-                reset = True
-                temp_file = io.StringIO()
-                sys.print_exception(exception, temp_file)
-                current_pattern['error'] = temp_file.getvalue().split('\n', 1)[1]
-                current_pattern['active'] = False
 
-            if not reset:
-                pass
-                # led_strip.show()  # TODO
+                if not reset:
+                    pass
+                    # led_strip.show()  # TODO
+        except Exception as exception:
+            reset = True
+            current_pattern['error'] = traceback(exception).split('\n', 1)[1]
+            current_pattern['active'] = False
 
 
 try:

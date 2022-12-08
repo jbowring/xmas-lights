@@ -213,24 +213,28 @@
     const editPatternAuthor = document.getElementById("editPatternAuthor");
     let monacoEditor = null;
     let lastEdited = null;
-    const placeholderCode = `# Imported modules:
+    const placeholderCode = `# Pre-imported modules:
 #   math
 #   random
 #
 # Parameters:
-#   led_index: current LED
 #   max_leds: LEDs in the string
-#   time_seconds: current time as a float (starts at 0.0)
+#   ticks: increments with each call
+#   timestep_ms: fixed duration between each tick
 #
 # Output:
-#   Put list of [R, G, B] values into variable \`result\`
-#   Values mut be between 0 and 255
+#   Put list of [max_leds * [R, G, B]] values into
+#   variable \`result\` (values mut be between 0 and 255)
+#
+# Note:
+#   Any declared variables remain for the duration of the
+#   pattern and are available in future calls
 
-result = [
-  255 * (time_seconds + led_index)/max_leds,
-  180 * (time_seconds + led_index)/max_leds,
-  123 * (time_seconds + led_index)/max_leds,
-]`
+result = [[
+  255 * ((ticks + led_index) % max_leds) /max_leds,
+  180 * ((ticks + led_index) % max_leds) /max_leds,
+  123 * ((ticks + led_index) % max_leds) /max_leds,
+] for led_index in range(max_leds)]`
 
     function escapeHtml(unsafe)
     {
