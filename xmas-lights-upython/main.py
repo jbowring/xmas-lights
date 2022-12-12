@@ -13,7 +13,7 @@ import sys
 import io
 
 max_leds = 40
-# led_strip = neopixel.NeoPixel(max_leds, 0, 22, 'GRB')  # TODO
+led_strip = neopixel.Neopixel(max_leds, 0, 22, 'GRB')
 
 wlan = network.WLAN(network.STA_IF)
 wlan.active(True)
@@ -149,10 +149,11 @@ async def serve_client(reader, writer):
             if pattern_id in patterns or all(key_valid(post_data, key, key_type) for key, key_type in json_keys.items()):
                 if pattern_id not in patterns:
                     patterns[pattern_id] = {}
-                do_reset = patterns[pattern_id].get('active', False) or post_data.get('active', False)
+                do_reset = patterns[pattern_id].get('active', False)
                 for key, key_type in json_keys.items():
                     if key_valid(post_data, key, key_type):
                         if key == 'active' and post_data[key] is True:
+                            do_reset = True
                             patterns[pattern_id]['error'] = None
                             for pattern in patterns.values():
                                 pattern['active'] = False
@@ -197,7 +198,6 @@ async def main():
                     if pattern['active']:
                         current_pattern = pattern
                         current_pattern['error'] = None
-                        print(current_pattern['script'])
                         script = compile(current_pattern['script'], current_pattern['name'], 'exec')
                         global_scope = {
                             'math': math,
@@ -271,18 +271,15 @@ async def main():
 
             next_ticks_ms = time.ticks_add(next_ticks_ms, timestep_ms)
             if current_pattern is None:
-                pass  # TODO turn all leds off
+                led_strip.fill((0, 0, 0))
+                led.off()
             else:
                 global_scope['ticks'] = ticks
                 exec(script, global_scope)
                 for led_index in range(max_leds):
-                    if led_index == 0:
-                        led.on() if int(global_scope['result'][led_index][1]) > 127 else led.off()
-                    # led_strip.set_pixel(led_index, result)  # TODO
-
-                if not reset:
-                    pass
-                    # led_strip.show()  # TODO
+                    led_strip.set_pixel(led_index, global_scope['result'][led_index])
+                led.on() if global_scope['result'][0][1] > 127 else led.off()
+            led_strip.show()
         except Exception as exception:
             reset = True
             current_pattern['error'] = traceback(exception).split('\n', 1)[1]
