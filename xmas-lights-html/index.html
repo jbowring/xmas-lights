@@ -223,7 +223,7 @@
 #   timestep_ms: fixed duration between each tick
 #
 # Output:
-#   Put list of [max_leds * [R, G, B]] values into
+#   Put a list of [max_leds * [G, R, B]] values into
 #   variable \`result\` (values mut be between 0 and 255)
 #
 # Note:
@@ -231,9 +231,9 @@
 #   pattern and are available in future calls
 
 result = [[
-  255 * ((ticks + led_index) % max_leds) /max_leds,
-  180 * ((ticks + led_index) % max_leds) /max_leds,
-  123 * ((ticks + led_index) % max_leds) /max_leds,
+  255 * ((ticks + led_index) % max_leds) / max_leds,
+  180 * ((ticks + led_index) % max_leds) / max_leds,
+  123 * ((ticks + led_index) % max_leds) / max_leds,
 ] for led_index in range(max_leds)]`
 
     function escapeHtml(unsafe)
