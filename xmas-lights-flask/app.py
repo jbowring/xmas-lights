@@ -90,9 +90,10 @@ reset = True
 
 patterns = {}
 
+PATTERN_FILENAME = Path(__file__).parent / "patterns.json"
+
 try:
-    pattern_filename = Path(__file__).parent / "patterns.json"
-    with open(pattern_filename) as file:
+    with open(PATTERN_FILENAME) as file:
         patterns = json.loads(file.read())
 except (OSError, ValueError):
     pass
@@ -155,15 +156,13 @@ def home():
 def update_pattern():
     global reset
     global patterns
+    global PATTERN_FILENAME
 
     if request.method == 'DELETE':
         try:
             del patterns[request.json['id']]
         except KeyError:
             return "Invalid Pattern ID", 400
-        else:
-            with open('patterns.json', 'w') as file:
-                file.write(json.dumps(patterns))
         return "OK"
 
     elif request.method == 'POST':
@@ -198,8 +197,9 @@ def update_pattern():
             if do_reset:
                 reset = True
 
-            with open('patterns.json', 'w') as file:
-                file.write(json.dumps(patterns))
+        # Finally, write back patterns file
+        with open(PATTERN_FILENAME, 'w') as file:
+            file.write(json.dumps(patterns))
 
         return "OK"
 
