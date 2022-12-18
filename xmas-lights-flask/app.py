@@ -153,6 +153,8 @@ def update_pattern():
     global reset
     global patterns
 
+    post_data = request.json
+
     if request.method == 'DELETE':
         try:
             del patterns[post_data['id']]
@@ -170,8 +172,6 @@ def update_pattern():
             'author': str,
             'script': str,
         }
-
-        post_data = request.json
 
         def key_valid(post_data, key, key_type):
             return key in post_data and isinstance(post_data[key], key_type)
