@@ -153,11 +153,9 @@ def update_pattern():
     global reset
     global patterns
 
-    post_data = request.json
-
     if request.method == 'DELETE':
         try:
-            del patterns[post_data['id']]
+            del patterns[request.json['id']]
         except KeyError:
             return "Invalid Pattern ID", 400
         else:
@@ -176,23 +174,23 @@ def update_pattern():
         def key_valid(post_data, key, key_type):
             return key in post_data and isinstance(post_data[key], key_type)
 
-        if key_valid(post_data, 'id', str):
+        if key_valid(request.json, 'id', str):
             pattern_id = request.json['id']
         else:
             pattern_id = str(random.getrandbits(32))
 
         # allow partial update if pattern_id already exists
-        if pattern_id in patterns or all(key_valid(post_data, key, key_type) for key, key_type in json_keys.items()):
+        if pattern_id in patterns or all(key_valid(request.json, key, key_type) for key, key_type in json_keys.items()):
             if pattern_id not in patterns:
                 patterns[pattern_id] = {}
-            do_reset = patterns[pattern_id].get('active', False) or post_data.get('active', False)
+            do_reset = patterns[pattern_id].get('active', False) or request.json.get('active', False)
             for key, key_type in json_keys.items():
-                if key_valid(post_data, key, key_type):
-                    if key == 'active' and post_data[key] is True:
+                if key_valid(request.json, key, key_type):
+                    if key == 'active' and request.json[key] is True:
                         patterns[pattern_id]['error'] = None
                         for pattern in patterns.values():
                             pattern['active'] = False
-                    patterns[pattern_id][key] = post_data[key]
+                    patterns[pattern_id][key] = request.json[key]
 
             if do_reset:
                 reset = True
