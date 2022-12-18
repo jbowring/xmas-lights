@@ -10,7 +10,6 @@ from flask import Flask, request, abort
 
 import app_html
 
-
 max_leds = 40
 # led_strip = neopixel.NeoPixel(max_leds, 0, 22, 'GRB')  # TODO
 
@@ -79,7 +78,6 @@ GLOBAL_SCOPE = {
     }
 }
 
-
 reset = True
 
 patterns = {}
@@ -90,7 +88,6 @@ try:
         patterns = json.loads(file.read())
 except (OSError, ValueError):
     pass
-
 
 
 def led_thread():
@@ -118,7 +115,7 @@ def led_thread():
                         script = compile(current_pattern['script'], current_pattern['name'], 'exec')
                     except SyntaxError as e:
                         pattern['active'] = False
-                        pattern['error'] = str(e) # TODO: Get e.line and highlight in GUI
+                        pattern['error'] = str(e)  # TODO: Get e.line and highlight in GUI
                         current_pattern = None
                     local_scope = {'max_leds': max_leds}
                     break
@@ -127,7 +124,7 @@ def led_thread():
             time_seconds += timestep
 
         if current_pattern is None:
-            #led = 
+            # led =
             pass  # TODO turn all leds off
         else:
             local_scope['time_seconds'] = time_seconds
@@ -158,68 +155,71 @@ def led_thread():
                 pass
                 # led_strip.show()  # TODO
 
+
 app = Flask(__name__)
 
-@app.route("/",methods=['GET'])
+
+@app.route("/", methods=['GET'])
 def home():
     global patterns
     return app_html.generate_html(json.dumps(json.dumps(patterns)))
-    
+
+
 @app.route("/", methods=['POST', 'DELETE'])
 def update_pattern():
-        global reset
-        global patterns
+    global reset
+    global patterns
 
-        if request.method == 'DELETE':
-            try:
-                del patterns[post_data['id']]
-            except KeyError:
-                return ("Invalid Pattern ID", 400)
-            else:
-                with open('patterns.json', 'w') as file:
-                    file.write(json.dumps(patterns))
-            return "OK"
+    if request.method == 'DELETE':
+        try:
+            del patterns[post_data['id']]
+        except KeyError:
+            return "Invalid Pattern ID", 400
+        else:
+            with open('patterns.json', 'w') as file:
+                file.write(json.dumps(patterns))
+        return "OK"
 
-        elif request.method == 'POST':
-            json_keys = {
-                'active': bool,
-                'name': str,
-                'author': str,
-                'script': str,
-            }
+    elif request.method == 'POST':
+        json_keys = {
+            'active': bool,
+            'name': str,
+            'author': str,
+            'script': str,
+        }
 
-            post_data = request.json
+        post_data = request.json
 
-            def key_valid(post_data, key, key_type):
-                return key in post_data and isinstance(post_data[key], key_type)
+        def key_valid(post_data, key, key_type):
+            return key in post_data and isinstance(post_data[key], key_type)
 
-            if key_valid(post_data, 'id', str):
-                pattern_id = request.json['id']
-            else:
-                pattern_id = str(random.getrandbits(32))
+        if key_valid(post_data, 'id', str):
+            pattern_id = request.json['id']
+        else:
+            pattern_id = str(random.getrandbits(32))
 
-            # allow partial update if pattern_id already exists
-            if pattern_id in patterns or all(key_valid(post_data, key, key_type) for key, key_type in json_keys.items()):
-                if pattern_id not in patterns:
-                    patterns[pattern_id] = {}
-                do_reset = patterns[pattern_id].get('active', False) or post_data.get('active', False)
-                for key, key_type in json_keys.items():
-                    if key_valid(post_data, key, key_type):
-                        if key == 'active' and post_data[key] is True:
-                            patterns[pattern_id]['error'] = None
-                            for pattern in patterns.values():
-                                pattern['active'] = False
-                        patterns[pattern_id][key] = post_data[key]
+        # allow partial update if pattern_id already exists
+        if pattern_id in patterns or all(key_valid(post_data, key, key_type) for key, key_type in json_keys.items()):
+            if pattern_id not in patterns:
+                patterns[pattern_id] = {}
+            do_reset = patterns[pattern_id].get('active', False) or post_data.get('active', False)
+            for key, key_type in json_keys.items():
+                if key_valid(post_data, key, key_type):
+                    if key == 'active' and post_data[key] is True:
+                        patterns[pattern_id]['error'] = None
+                        for pattern in patterns.values():
+                            pattern['active'] = False
+                    patterns[pattern_id][key] = post_data[key]
 
-                if do_reset:
-                    reset = True
+            if do_reset:
+                reset = True
 
-                with open('patterns.json', 'w') as file:
-                    file.write(json.dumps(patterns))
+            with open('patterns.json', 'w') as file:
+                file.write(json.dumps(patterns))
 
-            return "OK"
-    
+        return "OK"
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
     threading.Thread(target=led_thread).start()
-    app.run(host="0.0.0.0",debug=False, threaded=True)
+    app.run(host="0.0.0.0", debug=False, threaded=True)
