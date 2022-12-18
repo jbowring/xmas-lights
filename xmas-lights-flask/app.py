@@ -7,11 +7,13 @@ import threading
 import traceback
 
 from flask import Flask, request, abort
+import rpi_ws281x
 
 import app_html
 
 max_leds = 40
-# led_strip = neopixel.NeoPixel(max_leds, 0, 22, 'GRB')  # TODO
+led_strip = rpi_ws281x.PixelStrip(max_leds, 18, rpi_ws281x.WS2811_STRIP_GRB)
+led_strip.begin()
 
 timestep = 0.1
 
@@ -104,8 +106,6 @@ def led_thread():
     ticks = 0
     global_scope = {}
 
-    # led = ... TODO: Actually set LEDs
-
     while True:
         try:
             if reset:
@@ -125,14 +125,15 @@ def led_thread():
                 ticks += 1
 
             if current_pattern is None:
-                # led =
-                pass  # TODO turn all leds off
+                for led_index in range(max_leds):
+                    led_strip.setPixelColor(0)
+                led_strip.show()
             else:
                 global_scope['ticks'] = ticks
                 exec(script, global_scope)
-                # for led_index in range(max_leds):
-                #     led_strip.set_pixel(led_index, global_scope['result'][led_index])  # TODO
-            # led_strip.show()  # TODO
+                for led_index in range(max_leds):
+                    led_strip.setPixelColor(led_index, rpi_ws281x.Color(**global_scope['result'][led_index]))
+            led_strip.show()
         except Exception as exception:
             reset = True
             current_pattern['error'] = traceback.format_exc(limit=3)  # TODO: Get e.line and highlight in GUI
