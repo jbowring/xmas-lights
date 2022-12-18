@@ -13,6 +13,8 @@ import app_html
 max_leds = 40
 # led_strip = neopixel.NeoPixel(max_leds, 0, 22, 'GRB')  # TODO
 
+timestep = 0.1
+
 # Global scope for script interpretation
 GLOBAL_SCOPE = {
     'math': math,
@@ -75,7 +77,9 @@ GLOBAL_SCOPE = {
         'tuple': tuple,
         'type': type,
         'zip': zip,
-    }
+    },
+    'max_leds': max_leds,
+    'timestep_ms': timestep * 1000,
 }
 
 reset = True
@@ -94,66 +98,45 @@ def led_thread():
     global reset
     global patterns
     global max_leds
+    global timestep
     current_pattern = None
     script = None
-    time_seconds = 0
-    timestep = 0.1
+    ticks = 0
+    global_scope = {}
 
     # led = ... TODO: Actually set LEDs
 
     while True:
-        if reset:
-            reset = False
-            time_seconds = 0
-            current_pattern = None
-            script = None
-            for pattern in patterns.values():
-                if pattern['active']:
-                    current_pattern = pattern
-                    current_pattern['error'] = None
-                    try:
+        try:
+            if reset:
+                reset = False
+                ticks = 0
+                current_pattern = None
+                script = None
+                for pattern in patterns.values():
+                    if pattern['active']:
+                        current_pattern = pattern
+                        current_pattern['error'] = None
                         script = compile(current_pattern['script'], current_pattern['name'], 'exec')
-                    except SyntaxError as e:
-                        pattern['active'] = False
-                        pattern['error'] = str(e)  # TODO: Get e.line and highlight in GUI
-                        current_pattern = None
-                    local_scope = {'max_leds': max_leds}
-                    break
-        else:
-            time.sleep(timestep)
-            time_seconds += timestep
+                        global_scope = dict(GLOBAL_SCOPE)
+                        break
+            else:
+                time.sleep(timestep)
+                ticks += 1
 
-        if current_pattern is None:
-            # led =
-            pass  # TODO turn all leds off
-        else:
-            local_scope['time_seconds'] = time_seconds
-            for led_index in range(max_leds):
-                try:
-                    local_scope['led_index'] = led_index
-                    exec(script, GLOBAL_SCOPE, local_scope)
-                    length = len(local_scope['result'])
-                    if length != 3:
-                        raise ValueError(f'function returned {length} values')
-                    result = [int(value) for value in local_scope['result']]
-                    if any(value < 0 or value > 255 for value in result):
-                        raise ValueError(f'result values {result} are not between 0 and 255')
-                except Exception as exception:
-                    reset = True
-                    error_string = traceback.format_exc(limit=3)
-                    current_pattern['error'] = error_string
-                    current_pattern['active'] = False
-                else:
-                    if led_index == 0:
-                        # led.on() if result[1] > 127 else led.off()
-                        pass
-                    # led_strip.set_pixel(led_index, result)  # TODO
-                if reset:
-                    break
-
-            if not reset:
-                pass
-                # led_strip.show()  # TODO
+            if current_pattern is None:
+                # led =
+                pass  # TODO turn all leds off
+            else:
+                global_scope['ticks'] = ticks
+                exec(script, global_scope)
+                # for led_index in range(max_leds):
+                #     led_strip.set_pixel(led_index, global_scope['result'][led_index])  # TODO
+            # led_strip.show()  # TODO
+        except Exception as exception:
+            reset = True
+            current_pattern['error'] = traceback.format_exc(limit=3)  # TODO: Get e.line and highlight in GUI
+            current_pattern['active'] = False
 
 
 app = Flask(__name__)
