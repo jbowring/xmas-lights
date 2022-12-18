@@ -1,0 +1,9 @@
+[Unit]
+Description=Xmas Lights Service
+After=network-online.target multi-user.target
+
+[Service]
+ExecStart=/home/pi/xmas-lights/app.py
+
+[Install]
+WantedBy=multi-user.target
