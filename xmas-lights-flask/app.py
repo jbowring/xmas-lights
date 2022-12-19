@@ -14,7 +14,7 @@ import rpi_ws281x
 import app_html
 
 max_leds = 40
-led_strip = rpi_ws281x.PixelStrip(max_leds, 18, rpi_ws281x.WS2811_STRIP_GRB)
+led_strip = rpi_ws281x.PixelStrip(max_leds, 18, strip_type=rpi_ws281x.WS2811_STRIP_GRB)
 led_strip.begin()
 
 timestep = 0.1
