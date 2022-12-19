@@ -228,99 +228,8 @@
     </div>
 </div>
 
-<script type="text/javascript" src="https://unpkg.com/monaco-editor@latest/min/vs/loader.js"></script>
 <script>
-    require.config({ paths: { 'vs': 'https://unpkg.com/monaco-editor@latest/min/vs' }});
-
-    // Before loading vs/editor/editor.main, define a global MonacoEnvironment that overwrites
-    // the default worker url location (used when creating WebWorkers). The problem here is that
-    // HTML5 does not allow cross-domain web workers, so we need to proxy the instantiation of
-    // a web worker through a same-domain script
-    window.MonacoEnvironment = {
-        getWorkerUrl: function(workerId, label) {
-            return `data:text/javascript;charset=utf-8,${encodeURIComponent(
-                `self.MonacoEnvironment = {`
-                    `baseUrl: 'https://unpkg.com/monaco-editor@latest/min/'`
-                `};`
-                `importScripts('https://unpkg.com/monaco-editor@latest/min/vs/base/worker/workerMain.js');`
-            )}`;
-        }
-    };
-</script>
-<script>
-    const myModal = new bootstrap.Modal(document.getElementById('editPatternModal'), {});
-    const editPatternName = document.getElementById("editPatternName");
-    const editPatternAuthor = document.getElementById("editPatternAuthor");
-    let monacoEditor = null;
-    let lastEdited = null;
     let patterns;
-    const placeholderCode = `result = [[
-  255 * ((ticks + led_index) % max_leds) / max_leds,
-  180 * ((ticks + led_index) % max_leds) / max_leds,
-  123 * ((ticks + led_index) % max_leds) / max_leds,
-] for led_index in range(max_leds)]`
-
-    function escapeHtml(unsafe)
-    {
-        return unsafe
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-    }
-
-    function editPattern(patternId) {
-        require(["vs/editor/editor.main"], function () {
-            if(monacoEditor === null) {
-                monacoEditor = monaco.editor.create(document.getElementById('monaco-editor-container'), {
-                    value: '',
-                    language: 'python',
-                    theme: 'vs-dark',
-                    minimap: {enabled: false},
-                    automaticLayout: true,
-                    lineNumbersMinChars: 3,
-                });
-            }
-
-            if(lastEdited === null || lastEdited.patternId !== patternId) {
-                // editor has not been opened yet or this is a different pattern
-                if(patternId === null) {
-                    editPatternName.value = '';
-                    editPatternAuthor.value = '';
-                    monacoEditor.setValue(placeholderCode);
-                } else {
-                    editPatternName.value = patterns[patternId].name;
-                    editPatternAuthor.value = patterns[patternId].author;
-                    monacoEditor.setValue(patterns[patternId].script);
-                }
-            }
-
-            lastEdited = {"patternId": patternId};
-        });
-        myModal.show();
-
-        document.getElementById("saveButton").onclick = () => {
-            const xhr = new XMLHttpRequest();
-            xhr.open("POST", '/', true);
-
-            xhr.setRequestHeader("Content-Type", "application/json");
-
-            xhr.onreadystatechange = () => {
-                if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
-                    location.reload()
-                }
-            }
-            xhr.send(JSON.stringify({
-                "id": patternId,
-                "name": editPatternName.value,
-                "author": editPatternAuthor.value,
-                "script": monacoEditor.getValue(),
-                "active": patternId === null ? false : patterns[patternId].active,
-            }));
-        }
-    }
-
     const webSocket = new WebSocket(((window.location.protocol === "https:") ? "wss://" : "ws://") + window.location.host + "/ws");
     webSocket.onmessage = (event) => {
         patterns = JSON.parse(event.data);
@@ -416,6 +325,98 @@
 
             const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
             const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))
+        }
+    }
+</script>
+<script type="text/javascript" src="https://unpkg.com/monaco-editor@latest/min/vs/loader.js"></script>
+<script>
+    require.config({ paths: { 'vs': 'https://unpkg.com/monaco-editor@latest/min/vs' }});
+
+    // Before loading vs/editor/editor.main, define a global MonacoEnvironment that overwrites
+    // the default worker url location (used when creating WebWorkers). The problem here is that
+    // HTML5 does not allow cross-domain web workers, so we need to proxy the instantiation of
+    // a web worker through a same-domain script
+    window.MonacoEnvironment = {
+        getWorkerUrl: function(workerId, label) {
+            return `data:text/javascript;charset=utf-8,${encodeURIComponent(
+                `self.MonacoEnvironment = {`
+                    `baseUrl: 'https://unpkg.com/monaco-editor@latest/min/'`
+                `};`
+                `importScripts('https://unpkg.com/monaco-editor@latest/min/vs/base/worker/workerMain.js');`
+            )}`;
+        }
+    };
+</script>
+<script>
+    const myModal = new bootstrap.Modal(document.getElementById('editPatternModal'), {});
+    const editPatternName = document.getElementById("editPatternName");
+    const editPatternAuthor = document.getElementById("editPatternAuthor");
+    let monacoEditor = null;
+    let lastEdited = null;
+    const placeholderCode = `result = [[
+  255 * ((ticks + led_index) % max_leds) / max_leds,
+  180 * ((ticks + led_index) % max_leds) / max_leds,
+  123 * ((ticks + led_index) % max_leds) / max_leds,
+] for led_index in range(max_leds)]`
+
+    function escapeHtml(unsafe)
+    {
+        return unsafe
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    function editPattern(patternId) {
+        require(["vs/editor/editor.main"], function () {
+            if(monacoEditor === null) {
+                monacoEditor = monaco.editor.create(document.getElementById('monaco-editor-container'), {
+                    value: '',
+                    language: 'python',
+                    theme: 'vs-dark',
+                    minimap: {enabled: false},
+                    automaticLayout: true,
+                    lineNumbersMinChars: 3,
+                });
+            }
+
+            if(lastEdited === null || lastEdited.patternId !== patternId) {
+                // editor has not been opened yet or this is a different pattern
+                if(patternId === null) {
+                    editPatternName.value = '';
+                    editPatternAuthor.value = '';
+                    monacoEditor.setValue(placeholderCode);
+                } else {
+                    editPatternName.value = patterns[patternId].name;
+                    editPatternAuthor.value = patterns[patternId].author;
+                    monacoEditor.setValue(patterns[patternId].script);
+                }
+            }
+
+            lastEdited = {"patternId": patternId};
+        });
+        myModal.show();
+
+        document.getElementById("saveButton").onclick = () => {
+            const xhr = new XMLHttpRequest();
+            xhr.open("POST", '/', true);
+
+            xhr.setRequestHeader("Content-Type", "application/json");
+
+            xhr.onreadystatechange = () => {
+                if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
+                    location.reload()
+                }
+            }
+            xhr.send(JSON.stringify({
+                "id": patternId,
+                "name": editPatternName.value,
+                "author": editPatternAuthor.value,
+                "script": monacoEditor.getValue(),
+                "active": patternId === null ? false : patterns[patternId].active,
+            }));
         }
     }
 </script>
