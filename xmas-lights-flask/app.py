@@ -134,7 +134,7 @@ def led_thread():
                 global_scope['ticks'] = ticks
                 exec(script, global_scope)
                 for led_index in range(max_leds):
-                    led_strip.setPixelColor(led_index, rpi_ws281x.Color(**global_scope['result'][led_index]))
+                    led_strip.setPixelColor(led_index, rpi_ws281x.Color(*global_scope['result'][led_index]))
             led_strip.show()
         except Exception as exception:
             reset = True
