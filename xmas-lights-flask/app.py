@@ -7,11 +7,9 @@ import json
 from pathlib import Path
 import threading
 import traceback
-
 from flask import Flask, request, abort
 import rpi_ws281x
-
-import app_html
+import flask_sock
 
 max_leds = 40
 led_strip = rpi_ws281x.PixelStrip(max_leds, 18, strip_type=rpi_ws281x.WS2811_STRIP_GRB)
@@ -144,6 +142,7 @@ def led_thread():
 
 
 app = Flask(__name__)
+sock = flask_sock.Sock(app)
 
 
 @app.route("/favicon.ico", methods=['GET'])
@@ -153,8 +152,7 @@ def favicon():
 
 @app.route("/", methods=['GET'])
 def home():
-    global patterns
-    return app_html.generate_html(json.dumps(json.dumps(patterns)))
+    return app.send_static_file('index.html')
 
 
 @app.route("/", methods=['DELETE'])
@@ -221,6 +219,10 @@ def update_pattern():
     else:
         return "Incomplete request", 400
 
+
+@sock.route('/ws')
+def websocket(_sock):
+    _sock.send(json.dumps(patterns))
 
 if __name__ == "__main__":
     threading.Thread(target=led_thread).start()

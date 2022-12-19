@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Xmas Lights</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.2/font/bootstrap-icons.css">
@@ -213,24 +214,29 @@
     const editPatternAuthor = document.getElementById("editPatternAuthor");
     let monacoEditor = null;
     let lastEdited = null;
-    const placeholderCode = `# Imported modules:
+    let patterns;
+    const placeholderCode = `# Pre-imported modules:
 #   math
 #   random
 #
 # Parameters:
-#   led_index: current LED
 #   max_leds: LEDs in the string
-#   time_seconds: current time as a float (starts at 0.0)
+#   ticks: increments with each call
+#   timestep_ms: fixed duration between each tick
 #
 # Output:
-#   Put list of [R, G, B] values into variable \`result\`
-#   Values mut be between 0 and 255
+#   Put a list of [max_leds * [G, R, B]] values into
+#   variable \`result\` (values mut be between 0 and 255)
+#
+# Note:
+#   Any declared variables remain for the duration of the
+#   pattern and are available in future calls
 
-result = [
-  255 * (time_seconds + led_index)/max_leds,
-  180 * (time_seconds + led_index)/max_leds,
-  123 * (time_seconds + led_index)/max_leds,
-]`
+result = [[
+  255 * ((ticks + led_index) % max_leds) / max_leds,
+  180 * ((ticks + led_index) % max_leds) / max_leds,
+  123 * ((ticks + led_index) % max_leds) / max_leds,
+] for led_index in range(max_leds)]`
 
     function escapeHtml(unsafe)
     {
@@ -293,100 +299,102 @@ result = [
         }
     }
 
-    patternsJson = "{\"dsafqwwea\": {\"error\": \"Traceback (most recent call last):\\n File \\\"main.py\\\", line 252, in main\\n File \\\"<string>\\\", line 1\\n SyntaxError: invalid syntax \", \"active\": false, \"author\": \"Joel\", \"name\": \"Static white\", \"date\": \"Today\", \"script\": \"return 255, 255, 255\"}, \"uihsaduha\": {\"active\": true, \"author\": \"Joel\", \"name\": \"Static green/red\", \"date\": \"Today\", \"script\": \"if led % 2 == 0:\\n    return 255, 0, 0\\nelse:\\n    return 0, 255, 0\"}}";
-    let patterns = JSON.parse(patternsJson);
-    const table = document.getElementById("patternsTable");
-    for (const [patternId, pattern] of Object.entries(patterns)) {
-        let newRow = document.createElement("tr");
+    const webSocket = new WebSocket(((window.location.protocol === "https:") ? "wss://" : "ws://") + window.location.host + "/ws");
+    webSocket.onmessage = (event) => {
+        patterns = JSON.parse(event.data);
+        const table = document.getElementById("patternsTable");
+        for (const [patternId, pattern] of Object.entries(patterns)) {
+            let newRow = document.createElement("tr");
 
-        let activeTd = document.createElement("td");
-        activeTd.className = "activeTd";
+            let activeTd = document.createElement("td");
+            activeTd.className = "activeTd";
 
-        let errorButton = document.createElement("button");
-        errorButton.innerHTML = "<h6 style=\"margin: 0\"><i class=\"bi bi-exclamation-circle\"></i></h6>";
-        errorButton.className = "errorButton";
+            let errorButton = document.createElement("button");
+            errorButton.innerHTML = "<h6 style=\"margin: 0\"><i class=\"bi bi-exclamation-circle\"></i></h6>";
+            errorButton.className = "errorButton";
 
-        let activeDiv = document.createElement("div");
-        activeDiv.className = "activeDiv"
-        let activeButton = document.createElement("button");
-        activeButton.innerHTML = "<h5 style=\"margin: 0\"><i class=\"bi bi-play-fill\"></i><i class=\"bi bi-stop-fill\"></i></h5>";
-        activeButton.type = "button";
-        activeButton.className = "activeButton";
-        activeButton.onclick = () => {
-            const xhr = new XMLHttpRequest();
-            xhr.open("POST", '/', true);
+            let activeDiv = document.createElement("div");
+            activeDiv.className = "activeDiv"
+            let activeButton = document.createElement("button");
+            activeButton.innerHTML = "<h5 style=\"margin: 0\"><i class=\"bi bi-play-fill\"></i><i class=\"bi bi-stop-fill\"></i></h5>";
+            activeButton.type = "button";
+            activeButton.className = "activeButton";
+            activeButton.onclick = () => {
+                const xhr = new XMLHttpRequest();
+                xhr.open("POST", '/', true);
 
-            xhr.setRequestHeader("Content-Type", "application/json");
+                xhr.setRequestHeader("Content-Type", "application/json");
 
-            xhr.onreadystatechange = () => {
-                if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
-                    location.reload()
+                xhr.onreadystatechange = () => {
+                    if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
+                        location.reload()
+                    }
                 }
+                xhr.send(JSON.stringify({"id": patternId, "active": !pattern.active}));
             }
-            xhr.send(JSON.stringify({"id": patternId, "active": !pattern.active}));
-        }
-        if(pattern.active) {
-            activeButton.classList.add('active');
-        }
+            if(pattern.active) {
+                activeButton.classList.add('active');
+            }
 
-        if(pattern.hasOwnProperty('error') && pattern.error !== null) {
-            errorButton.setAttribute("data-bs-title", escapeHtml(pattern.error).replaceAll('\\n', '<br>'))
-            errorButton.setAttribute("data-bs-toggle", "tooltip")
-            errorButton.setAttribute("data-bs-placement", "bottom")
-            errorButton.setAttribute("data-bs-custom-class", "error-tooltip")
-            errorButton.setAttribute("data-bs-html", "true")
-        } else {
-            errorButton.setAttribute("style", "visibility: hidden");
-        }
-        activeDiv.appendChild(errorButton);
-        activeDiv.appendChild(activeButton)
-        activeTd.appendChild(activeDiv);
-        newRow.appendChild(activeTd);
+            if(pattern.hasOwnProperty('error') && pattern.error !== null) {
+                errorButton.setAttribute("data-bs-title", escapeHtml(pattern.error).replaceAll('\\n', '<br>'))
+                errorButton.setAttribute("data-bs-toggle", "tooltip")
+                errorButton.setAttribute("data-bs-placement", "bottom")
+                errorButton.setAttribute("data-bs-custom-class", "error-tooltip")
+                errorButton.setAttribute("data-bs-html", "true")
+            } else {
+                errorButton.setAttribute("style", "visibility: hidden");
+            }
+            activeDiv.appendChild(errorButton);
+            activeDiv.appendChild(activeButton)
+            activeTd.appendChild(activeDiv);
+            newRow.appendChild(activeTd);
 
-        let nameTd = document.createElement("td");
-        nameTd.innerText = pattern.name;
-        newRow.appendChild(nameTd);
+            let nameTd = document.createElement("td");
+            nameTd.innerText = pattern.name;
+            newRow.appendChild(nameTd);
 
-        let authorTd = document.createElement("td");
-        authorTd.innerText = pattern.author;
-        newRow.appendChild(authorTd);
+            let authorTd = document.createElement("td");
+            authorTd.innerText = pattern.author;
+            newRow.appendChild(authorTd);
 
-        let editButtonTd = document.createElement("td");
-        let editButton = document.createElement("button");
-        editButton.innerText = "Edit";
-        editButton.type = "button";
-        editButton.className = "editButton";
-        editButton.onclick = () => {
-            editPattern(patternId);
-        }
+            let editButtonTd = document.createElement("td");
+            let editButton = document.createElement("button");
+            editButton.innerText = "Edit";
+            editButton.type = "button";
+            editButton.className = "editButton";
+            editButton.onclick = () => {
+                editPattern(patternId);
+            }
 
-        let deleteButton = document.createElement("button");
-        deleteButton.innerText = "Delete";
-        deleteButton.type = "button";
-        deleteButton.className = "deleteButton";
-        deleteButton.onclick = () => {
-            const xhr = new XMLHttpRequest();
-            xhr.open("DELETE", '/', true);
+            let deleteButton = document.createElement("button");
+            deleteButton.innerText = "Delete";
+            deleteButton.type = "button";
+            deleteButton.className = "deleteButton";
+            deleteButton.onclick = () => {
+                const xhr = new XMLHttpRequest();
+                xhr.open("DELETE", '/', true);
 
-            xhr.setRequestHeader("Content-Type", "application/json");
+                xhr.setRequestHeader("Content-Type", "application/json");
 
-            xhr.onreadystatechange = () => {
-                if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
-                    location.reload()
+                xhr.onreadystatechange = () => {
+                    if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
+                        location.reload()
+                    }
                 }
+                xhr.send(JSON.stringify({"id": patternId}));
             }
-            xhr.send(JSON.stringify({"id": patternId}));
+
+            editButtonTd.appendChild(editButton)
+            editButtonTd.appendChild(deleteButton)
+            newRow.appendChild(editButtonTd);
+
+            newRow.className = "buttonParent";
+            table.appendChild(newRow);
+
+            const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
+            const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))
         }
-
-        editButtonTd.appendChild(editButton)
-        editButtonTd.appendChild(deleteButton)
-        newRow.appendChild(editButtonTd);
-
-        newRow.className = "buttonParent";
-        table.appendChild(newRow);
-
-        const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
-        const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))
     }
 </script>
 </body>
