@@ -146,6 +146,11 @@ def led_thread():
 app = Flask(__name__)
 
 
+@app.route("/favicon.ico", methods=['GET'])
+def favicon():
+    return app.send_static_file('favicon.ico')
+
+
 @app.route("/", methods=['GET'])
 def home():
     global patterns
