@@ -152,56 +152,69 @@ def home():
     return app_html.generate_html(json.dumps(json.dumps(patterns)))
 
 
-@app.route("/", methods=['POST', 'DELETE'])
+@app.route("/", methods=['DELETE'])
+def delete_pattern():
+    global reset
+    global patterns
+    global PATTERN_FILENAME
+
+    try:
+        pattern_id = request.json['id']
+        do_reset = patterns[pattern_id].get('active', False)
+        del patterns[pattern_id]
+        if do_reset:
+            reset = True
+    except KeyError:
+        return "Invalid Pattern ID", 400
+    else:
+        with open(PATTERN_FILENAME, 'w') as file:
+            file.write(json.dumps(patterns))
+        return "OK"
+
+
+@app.route("/", methods=['POST'])
 def update_pattern():
     global reset
     global patterns
     global PATTERN_FILENAME
 
-    if request.method == 'DELETE':
-        try:
-            del patterns[request.json['id']]
-        except KeyError:
-            return "Invalid Pattern ID", 400
-        return "OK"
+    json_keys = {
+        'active': bool,
+        'name': str,
+        'author': str,
+        'script': str,
+    }
 
-    elif request.method == 'POST':
-        json_keys = {
-            'active': bool,
-            'name': str,
-            'author': str,
-            'script': str,
-        }
+    def key_valid(post_data, key, key_type):
+        return key in post_data and isinstance(post_data[key], key_type)
 
-        def key_valid(post_data, key, key_type):
-            return key in post_data and isinstance(post_data[key], key_type)
+    if key_valid(request.json, 'id', str):
+        pattern_id = request.json['id']
+    else:
+        pattern_id = str(random.getrandbits(32))
 
-        if key_valid(request.json, 'id', str):
-            pattern_id = request.json['id']
-        else:
-            pattern_id = str(random.getrandbits(32))
+    # allow partial update if pattern_id already exists
+    if pattern_id in patterns or all(key_valid(request.json, key, key_type) for key, key_type in json_keys.items()):
+        if pattern_id not in patterns:
+            patterns[pattern_id] = {}
+        do_reset = patterns[pattern_id].get('active', False) or request.json.get('active', False)
+        for key, key_type in json_keys.items():
+            if key_valid(request.json, key, key_type):
+                if key == 'active' and request.json[key] is True:
+                    patterns[pattern_id]['error'] = None
+                    for pattern in patterns.values():
+                        pattern['active'] = False
+                patterns[pattern_id][key] = request.json[key]
 
-        # allow partial update if pattern_id already exists
-        if pattern_id in patterns or all(key_valid(request.json, key, key_type) for key, key_type in json_keys.items()):
-            if pattern_id not in patterns:
-                patterns[pattern_id] = {}
-            do_reset = patterns[pattern_id].get('active', False) or request.json.get('active', False)
-            for key, key_type in json_keys.items():
-                if key_valid(request.json, key, key_type):
-                    if key == 'active' and request.json[key] is True:
-                        patterns[pattern_id]['error'] = None
-                        for pattern in patterns.values():
-                            pattern['active'] = False
-                    patterns[pattern_id][key] = request.json[key]
+        if do_reset:
+            reset = True
 
-            if do_reset:
-                reset = True
-
-        # Finally, write back patterns file
         with open(PATTERN_FILENAME, 'w') as file:
             file.write(json.dumps(patterns))
-
         return "OK"
+
+    else:
+        return "Incomplete request", 400
 
 
 if __name__ == "__main__":
