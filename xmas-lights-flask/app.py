@@ -129,8 +129,7 @@ def led_thread():
 
             if current_pattern is None:
                 for led_index in range(max_leds):
-                    led_strip.setPixelColor(0)
-                led_strip.show()
+                    led_strip.setPixelColor(led_index, 0)
             else:
                 global_scope['ticks'] = ticks
                 exec(script, global_scope)
@@ -139,8 +138,9 @@ def led_thread():
             led_strip.show()
         except Exception as exception:
             reset = True
-            current_pattern['error'] = traceback.format_exc(limit=3)  # TODO: Get e.line and highlight in GUI
-            current_pattern['active'] = False
+            if current_pattern is not None:
+                current_pattern['error'] = traceback.format_exc(limit=3)  # TODO: Get e.line and highlight in GUI
+                current_pattern['active'] = False
 
 
 app = Flask(__name__)
