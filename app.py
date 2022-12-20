@@ -79,6 +79,7 @@ GLOBAL_SCOPE = {
         'zip': zip,
     },
     'max_leds': max_leds,
+    'seconds': 0.0,
 }
 
 reset = True
@@ -101,16 +102,13 @@ def led_thread():
     current_pattern = None
     script = None
     start_time = 0
-    current_time = 0.0
     global_scope = {}
 
     while True:
         try:
             if reset:
                 reset = False
-                current_time = 0.0
                 current_pattern = None
-                script = None
                 for pattern in patterns.values():
                     if pattern['active']:
                         current_pattern = pattern
@@ -120,16 +118,15 @@ def led_thread():
                         start_time = time.monotonic()
                         break
             else:
-                current_time = time.monotonic() - start_time
+                global_scope['seconds'] = time.monotonic() - start_time
 
             if current_pattern is None:
                 for led_index in range(max_leds):
                     led_strip.setPixelColor(led_index, 0)
             else:
-                global_scope['seconds'] = current_time
                 exec(script, global_scope)
                 for led_index in range(max_leds):
-                    led_strip.setPixelColor(led_index, rpi_ws281x.Color(*(int(value) for value in global_scope['result'][led_index])))
+                    led_strip.setPixelColor(led_index, rpi_ws281x.Color(*(int(global_scope['result'][led_index][i]) for i in range(3))))
             led_strip.show()
         except Exception as exception:
             reset = True
