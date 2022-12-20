@@ -137,7 +137,7 @@ def led_thread():
         except Exception as exception:
             reset = True
             if current_pattern is not None:
-                current_pattern['error'] = traceback.format_exc(limit=3)  # TODO: Get e.line and highlight in GUI
+                current_pattern['error'] = traceback.format_exc(limit=3).split('\n', 3)[3]  # TODO: Get e.line and highlight in GUI
                 current_pattern['active'] = False
 
 

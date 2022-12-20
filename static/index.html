@@ -229,6 +229,15 @@
 </div>
 
 <script>
+    function escapeHtml(unsafe) {
+        return unsafe
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
     let patterns;
     const webSocket = new WebSocket(((window.location.protocol === "https:") ? "wss://" : "ws://") + window.location.host + "/ws");
     webSocket.onmessage = (event) => {
@@ -268,7 +277,7 @@
             }
 
             if(pattern.hasOwnProperty('error') && pattern.error !== null) {
-                errorButton.setAttribute("data-bs-title", escapeHtml(pattern.error).replaceAll('\\n', '<br>'))
+                errorButton.setAttribute("data-bs-title", escapeHtml(pattern.error).replaceAll('\n', '<br>'))
                 errorButton.setAttribute("data-bs-toggle", "tooltip")
                 errorButton.setAttribute("data-bs-placement", "bottom")
                 errorButton.setAttribute("data-bs-custom-class", "error-tooltip")
@@ -358,16 +367,6 @@
   180 * ((ticks + led_index) % max_leds) / max_leds,
   123 * ((ticks + led_index) % max_leds) / max_leds,
 ] for led_index in range(max_leds)]`
-
-    function escapeHtml(unsafe)
-    {
-        return unsafe
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-    }
 
     function editPattern(patternId) {
         require(["vs/editor/editor.main"], function () {
