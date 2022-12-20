@@ -202,9 +202,8 @@
                                 </p>
                                 <b>Parameters</b>
                                 <p>
-                                    <code>max_leds </code> Number of LEDs in the string<br>
-                                    <code>ticks </code> Starts at zero, increments with each call to the pattern function<br>
-                                    <code>timestep_ms </code> Fixed duration between each tick<br>
+                                    <code>max_leds -> int </code> Number of LEDs in the string<br>
+                                    <code>seconds -> float </code> Elapsed time (in seconds) since the pattern started
                                 </p>
                                 <b>Output</b>
                                 <p>
@@ -363,9 +362,9 @@
     let monacoEditor = null;
     let lastEdited = null;
     const placeholderCode = `result = [[
-  255 * ((ticks + led_index) % max_leds) / max_leds,
-  180 * ((ticks + led_index) % max_leds) / max_leds,
-  123 * ((ticks + led_index) % max_leds) / max_leds,
+  255 * (1 - (((seconds / 0.03) + led_index) % max_leds) / max_leds),
+  100 * (1 - (((seconds / 0.03) + led_index) % max_leds) / max_leds),
+  255 * (1 - (((seconds / 0.03) + led_index) % max_leds) / max_leds),
 ] for led_index in range(max_leds)]`
 
     function editPattern(patternId) {

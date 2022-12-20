@@ -15,8 +15,6 @@ max_leds = 40
 led_strip = rpi_ws281x.PixelStrip(max_leds, 18, strip_type=rpi_ws281x.WS2811_STRIP_GRB)
 led_strip.begin()
 
-timestep = 0.01
-
 # Global scope for script interpretation
 GLOBAL_SCOPE = {
     'math': math,
@@ -81,7 +79,6 @@ GLOBAL_SCOPE = {
         'zip': zip,
     },
     'max_leds': max_leds,
-    'timestep_ms': timestep * 1000,
 }
 
 reset = True
@@ -101,17 +98,17 @@ def led_thread():
     global reset
     global patterns
     global max_leds
-    global timestep
     current_pattern = None
     script = None
-    ticks = 0
+    start_time = 0
+    current_time = 0.0
     global_scope = {}
 
     while True:
         try:
             if reset:
                 reset = False
-                ticks = 0
+                current_time = 0.0
                 current_pattern = None
                 script = None
                 for pattern in patterns.values():
@@ -120,16 +117,16 @@ def led_thread():
                         current_pattern['error'] = None
                         script = compile(current_pattern['script'], current_pattern['name'], 'exec')
                         global_scope = dict(GLOBAL_SCOPE)
+                        start_time = time.monotonic()
                         break
             else:
-                time.sleep(timestep)
-                ticks += 1
+                current_time = time.monotonic() - start_time
 
             if current_pattern is None:
                 for led_index in range(max_leds):
                     led_strip.setPixelColor(led_index, 0)
             else:
-                global_scope['ticks'] = ticks
+                global_scope['seconds'] = current_time
                 exec(script, global_scope)
                 for led_index in range(max_leds):
                     led_strip.setPixelColor(led_index, rpi_ws281x.Color(*(int(value) for value in global_scope['result'][led_index])))
