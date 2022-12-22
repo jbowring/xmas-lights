@@ -20,6 +20,8 @@ GLOBAL_SCOPE = {
     'math': math,
     'random': random,
     '__builtins__': {
+        '__build_class__': __build_class__,
+        '__name__': '',
         'abs': abs,
         'all': all,
         'any': any,
