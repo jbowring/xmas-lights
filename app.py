@@ -7,13 +7,16 @@ import json
 from pathlib import Path
 import threading
 import traceback
-import flask
+import websockets
+import asyncio
 import rpi_ws281x
-import flask_sock
+import flask
 
 max_leds = 40
 led_strip = rpi_ws281x.PixelStrip(max_leds, 18, strip_type=rpi_ws281x.WS2811_STRIP_GRB)
 led_strip.begin()
+
+connected_websockets = set()
 
 # Global scope for script interpretation
 GLOBAL_SCOPE = {
@@ -138,7 +141,6 @@ def led_thread():
 
 
 app = flask.Flask(__name__, static_url_path='/\\')
-sock = flask_sock.Sock(app)
 
 
 @app.route("/<path:filename>", methods=['GET'])
@@ -151,28 +153,26 @@ def home():
     return flask.send_from_directory('xmas-lights-react/build', 'index.html')
 
 
-@app.route("/", methods=['DELETE'])
-def delete_pattern():
+def delete_pattern(request):
     global reset
     global patterns
     global PATTERN_FILENAME
 
     try:
-        pattern_id = flask.request.json['id']
+        pattern_id = request['id']
         do_reset = patterns[pattern_id].get('active', False)
         del patterns[pattern_id]
         if do_reset:
             reset = True
     except KeyError:
-        return "Invalid Pattern ID", 400
+        return "Invalid Pattern ID", 400  # TODO handle error
     else:
         with open(PATTERN_FILENAME, 'w') as file:
             file.write(json.dumps(patterns))
-        return "OK"
+        websockets.broadcast(connected_websockets, json.dumps(patterns))
 
 
-@app.route("/", methods=['POST'])
-def update_pattern():
+def update_pattern(request):
     global reset
     global patterns
     global PATTERN_FILENAME
@@ -187,49 +187,68 @@ def update_pattern():
     def key_valid(post_data, key, key_type):
         return key in post_data and isinstance(post_data[key], key_type)
 
-    if key_valid(flask.request.json, 'id', str):
-        pattern_id = flask.request.json['id']
+    if key_valid(request, 'id', str):
+        pattern_id = request['id']
     else:
         pattern_id = str(random.getrandbits(32))
 
     # allow partial update if pattern_id already exists
-    if pattern_id in patterns or all(key_valid(flask.request.json, key, key_type) for key, key_type in json_keys.items()):
+    if pattern_id in patterns or all(key_valid(request, key, key_type) for key, key_type in json_keys.items()):
         if pattern_id not in patterns:
             patterns[pattern_id] = {}
-        do_reset = patterns[pattern_id].get('active', False) or flask.request.json.get('active', False)
+        do_reset = patterns[pattern_id].get('active', False) or request.get('active', False)
         for key, key_type in json_keys.items():
-            if key_valid(flask.request.json, key, key_type):
-                if key == 'active' and flask.request.json[key] is True:
+            if key_valid(request, key, key_type):
+                if key == 'active' and request[key] is True:
                     patterns[pattern_id]['error'] = None
                     for pattern in patterns.values():
                         pattern['active'] = False
-                patterns[pattern_id][key] = flask.request.json[key]
+                patterns[pattern_id][key] = request[key]
 
         if do_reset:
             reset = True
 
         with open(PATTERN_FILENAME, 'w') as file:
             file.write(json.dumps(patterns))
-        return "OK"
+        websockets.broadcast(connected_websockets, json.dumps(patterns))
 
     else:
-        return "Incomplete request", 400
+        return "Incomplete request", 400  # TODO handle error
 
 
-@sock.route('/ws')
-def websocket(_sock):
-    i = 0
-    while True:
-        patterns[list(patterns.keys())[0]]['name'] = str(i)
-        patterns[list(patterns.keys())[0]]['author'] = str(i)
-        patterns[list(patterns.keys())[0]]['script'] = str(i)
-        _sock.send(json.dumps(patterns))
-        time.sleep(1)
-        i += 1
+async def handler(websocket):
+    connected_websockets.add(websocket)
+    try:
+        await websocket.send(json.dumps(patterns))
+        async for message in websocket:
+            request = json.loads(message)
+            if all(key in request for key in ['action', 'pattern']):
+                if request['action'] == 'create':
+                    update_pattern(request['pattern'])
+                elif request['action'] == 'update':
+                    update_pattern(request['pattern'])
+                elif request['action'] == 'delete':
+                    delete_pattern(request['pattern'])
+    finally:
+        connected_websockets.remove(websocket)
 
+
+async def main():
+    async with websockets.serve(handler, "localhost", 5000):
+        i = 0
+        while True:
+            patterns[99999999] = {
+                'name': str(i),
+                'author': str(i),
+                'script': str(i),
+            }
+            websockets.broadcast(connected_websockets, json.dumps(patterns))
+            await asyncio.sleep(1)
+            i += 1
+        await asyncio.Future()
 
 if __name__ == "__main__":
     # only run LED thread if not using a development environment
     if 'rpi_ws281x_mock' not in dir(rpi_ws281x):
         threading.Thread(target=led_thread).start()
-    app.run(host="0.0.0.0", debug=False, threaded=True)
+    asyncio.run(main())

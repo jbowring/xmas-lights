@@ -1,14 +1,14 @@
 import PatternTable from "./PatternTable";
-import React from "react";
+import React, {createRef} from "react";
 import PatternModal from "./PatternModal"
 
 class App extends React.Component {
+    modal = createRef();
+
     constructor(props) {
         super(props);
         this.state = {
             patterns: {},
-            currentPattern: null,
-            showModal: false,
         };
     }
 
@@ -39,16 +39,24 @@ class App extends React.Component {
     }
 
     editPattern = (patternId) => {
-        this.setState({
+        this.modal.current.setState({
             currentPattern: this.state.patterns[patternId],
-            showModal: true,
         });
     }
 
+    deletePattern = (patternId) => {
+        this.webSocket.send(JSON.stringify({
+            action: 'delete',
+            pattern: {
+                id: patternId,
+            },
+        }))
+    }
+
     newPattern = () => {
-        this.setState({
-            showModal: true,
+        this.modal.current.setState({
             currentPattern: {
+                id: null,
                 name: 'name',
                 author: 'author',
                 script: [
@@ -58,25 +66,34 @@ class App extends React.Component {
                     '	255 * (1 - (((seconds / 0.03) + led_index) % max_leds) / max_leds),',
                     '] for led_index in range(max_leds)]',
                 ].join('\n'),
+                active: false,
             },
         });
     }
 
     closeModal = () => {
-        this.setState({currentPattern: null})
+        this.modal.current.setState({currentPattern: null})
+    }
+
+    sendPattern = (pattern) => {
+        this.webSocket.send(JSON.stringify({
+            action: 'update',
+            pattern: pattern,
+        }))
+        this.closeModal()
     }
 
     render() {
         return (
           <div>
               <h1 className="main-title">XMAS LIGHTS</h1>
-              <PatternTable patterns={this.state.patterns} editCallback={this.editPattern}/>
+              <PatternTable patterns={this.state.patterns} editCallback={this.editPattern} deleteCallback={this.deletePattern}/>
               <div style={{display: "flex"}}>
                   <button id="addButton" type="button" onClick={this.newPattern}>
                       +
                   </button>
               </div>
-              <PatternModal pattern={this.state.currentPattern} closeCallback={this.closeModal}/>
+              <PatternModal ref={this.modal} submitCallback={this.sendPattern} closeCallback={this.closeModal}/>
           </div>
         );
     }

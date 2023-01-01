@@ -21,10 +21,10 @@ window.MonacoEnvironment = {
 
 export default function Editor(props) {
 	const divEl = useRef(null);
-	let editor = useRef(null);
+
 	useEffect(() => {
 		if (divEl.current) {
-			editor.current = monaco.editor.create(divEl.current, {
+			props.editorRef.current = monaco.editor.create(divEl.current, {
 				value: '',
 				language: 'python',
 				theme: 'vs-dark',
@@ -34,10 +34,10 @@ export default function Editor(props) {
 			});
 		}
 
-		editor.current.setValue(props.value);
+		props.editorRef.current.setValue(props.value);
 
-		return () => editor.current.dispose();
-	}, [props.value]);
+		return () => props.editorRef.current.dispose();
+	}, [props.value, props.editorRef]);
 
 	return <div id="monaco-editor-container" ref={divEl}></div>;
 }

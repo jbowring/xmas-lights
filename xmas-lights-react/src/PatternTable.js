@@ -54,7 +54,7 @@ function PatternRows(props) {
                 <button type="button" className="editButton" onClick={() => props.editCallback(patternId)}>
                     Edit
                 </button>
-                <button type="button" className="deleteButton">
+                <button type="button" className="deleteButton" onClick={() => props.deleteCallback(patternId)}>
                     Delete
                 </button>
             </td>
@@ -75,7 +75,7 @@ class PatternTable extends React.Component {
                     </tr>
                 </thead>
                 <tbody>
-                    <PatternRows patterns={this.props.patterns} editCallback={this.props.editCallback}/>
+                    <PatternRows patterns={this.props.patterns} editCallback={this.props.editCallback} deleteCallback={this.props.deleteCallback}/>
                 </tbody>
             </table>
         )
