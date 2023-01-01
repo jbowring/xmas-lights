@@ -1,0 +1,166 @@
+details {
+  margin-bottom: 5px;
+}
+
+summary {
+  color: var(--bs-primary);
+}
+
+.table {
+  width: auto;
+  min-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.errorButton {
+  visibility: hidden;
+}
+
+h5 {
+  margin: 0;
+}
+
+h6 {
+  margin: 0;
+}
+
+#monaco-editor-container {
+  height: 400px;
+  border: 1px solid black;
+}
+
+.details-text {
+  border-left-color: rgb(216, 221, 224);
+  border-left-style: solid;
+  border-left-width: 4px;
+  padding-left: 12px;
+}
+
+.tooltip {
+  --bs-tooltip-bg: var(--bs-red);
+  --bs-tooltip-max-width: 500px;
+  --bs-tooltip-opacity: 100;
+  white-space: pre-line;
+}
+
+.tooltip-inner {
+  text-align: left;
+}
+
+.editButton {
+  border: none;
+  background: none;
+  margin: 0;
+  padding: 0;
+  color: dodgerblue;
+  visibility: hidden;
+}
+
+.editButton:hover {
+  color: #0066ff;
+}
+
+.buttonParent:hover .editButton {
+  visibility: visible;
+}
+
+.deleteButton {
+  border: none;
+  background: none;
+  margin: 0;
+  padding: 0 0 0 10px;
+  color: indianred;
+  visibility: hidden;
+}
+
+.deleteButton:hover {
+  color: red;
+}
+
+.buttonParent:hover .deleteButton {
+  visibility: visible;
+}
+
+.activeDiv {
+  display:flex;
+  justify-content:left;
+}
+
+.errorButton {
+  border: none;
+  background: none;
+  margin: 0;
+  padding: 0 4px 0 0;
+  color: var(--bs-red);
+  cursor: default !important;
+}
+
+.activeButton {
+  border: none;
+  background: none;
+  margin: 0;
+  padding: 0;
+  color: gray;
+  visibility: hidden;
+  alignment: right;
+}
+
+.activeButton .bi-stop-fill {
+  display: none;
+  color: #464646;
+}
+
+.activeButton.active {
+  visibility: visible;
+  color: #464646;
+}
+
+.activeButton.active:hover .bi-stop-fill {
+  display: inline-block;
+  visibility: visible;
+  color: #464646;
+}
+
+.activeButton.active:hover .bi-play-fill {
+  display: none;
+  color: #464646;
+}
+
+.activeButton:hover {
+  color: #464646;
+}
+
+.buttonParent:hover .activeButton {
+  visibility: visible;
+}
+
+.main-title {
+  font-family: "Oswald", sans-serif;
+  font-style: italic;
+  text-align: center;
+  font-size: 500%;
+  text-shadow: 3px 2px red, 5px 4px #00ff00;
+  color: blue;
+}
+
+body {
+  background: #fff4f4;
+}
+
+table {
+  color: #464646 !important;
+}
+
+#addButton {
+  border: none;
+  background: none;
+  padding: 0;
+  color: gray;
+  margin: -20px auto 0;
+  font-size: 40px;
+}
+
+#addButton:hover {
+  color: #464646;
+}
