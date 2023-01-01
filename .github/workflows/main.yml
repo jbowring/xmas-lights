@@ -1,0 +1,23 @@
+on: push
+name: Run NPM build
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-node@v3
+      with:
+        node-version: 14
+        cache: 'npm'
+        cache-dependency-path: xmas-lights-react/package-lock.json
+    - run: npm install
+      working-directory: xmas-lights-react
+    - run: npm run build
+      working-directory: xmas-lights-react
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+          path: |
+            *
+            !xmas-lights-react
+            xmas-lights-react/build
