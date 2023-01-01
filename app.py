@@ -220,6 +220,9 @@ def update_pattern():
 def websocket(_sock):
     _sock.send(json.dumps(patterns))
 
+
 if __name__ == "__main__":
-    threading.Thread(target=led_thread).start()
+    # only run LED thread if not using a development environment
+    if 'rpi_ws281x_mock' not in dir(rpi_ws281x):
+        threading.Thread(target=led_thread).start()
     app.run(host="0.0.0.0", debug=False, threaded=True)
