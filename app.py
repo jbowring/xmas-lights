@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 import threading
 import traceback
-from flask import Flask, request, abort
+import flask
 import rpi_ws281x
 import flask_sock
 
@@ -137,18 +137,18 @@ def led_thread():
                 current_pattern['active'] = False
 
 
-app = Flask(__name__)
+app = flask.Flask(__name__, static_url_path='/\\')
 sock = flask_sock.Sock(app)
 
 
-@app.route("/favicon.ico", methods=['GET'])
-def favicon():
-    return app.send_static_file('favicon.ico')
+@app.route("/<path:filename>", methods=['GET'])
+def serve_static(filename):
+    return flask.send_from_directory('xmas-lights-react/build', filename)
 
 
 @app.route("/", methods=['GET'])
 def home():
-    return app.send_static_file('index.html')
+    return flask.send_from_directory('xmas-lights-react/build', 'index.html')
 
 
 @app.route("/", methods=['DELETE'])
@@ -158,7 +158,7 @@ def delete_pattern():
     global PATTERN_FILENAME
 
     try:
-        pattern_id = request.json['id']
+        pattern_id = flask.request.json['id']
         do_reset = patterns[pattern_id].get('active', False)
         del patterns[pattern_id]
         if do_reset:
@@ -187,23 +187,23 @@ def update_pattern():
     def key_valid(post_data, key, key_type):
         return key in post_data and isinstance(post_data[key], key_type)
 
-    if key_valid(request.json, 'id', str):
-        pattern_id = request.json['id']
+    if key_valid(flask.request.json, 'id', str):
+        pattern_id = flask.request.json['id']
     else:
         pattern_id = str(random.getrandbits(32))
 
     # allow partial update if pattern_id already exists
-    if pattern_id in patterns or all(key_valid(request.json, key, key_type) for key, key_type in json_keys.items()):
+    if pattern_id in patterns or all(key_valid(flask.request.json, key, key_type) for key, key_type in json_keys.items()):
         if pattern_id not in patterns:
             patterns[pattern_id] = {}
-        do_reset = patterns[pattern_id].get('active', False) or request.json.get('active', False)
+        do_reset = patterns[pattern_id].get('active', False) or flask.request.json.get('active', False)
         for key, key_type in json_keys.items():
-            if key_valid(request.json, key, key_type):
-                if key == 'active' and request.json[key] is True:
+            if key_valid(flask.request.json, key, key_type):
+                if key == 'active' and flask.request.json[key] is True:
                     patterns[pattern_id]['error'] = None
                     for pattern in patterns.values():
                         pattern['active'] = False
-                patterns[pattern_id][key] = request.json[key]
+                patterns[pattern_id][key] = flask.request.json[key]
 
         if do_reset:
             reset = True
@@ -218,7 +218,14 @@ def update_pattern():
 
 @sock.route('/ws')
 def websocket(_sock):
-    _sock.send(json.dumps(patterns))
+    i = 0
+    while True:
+        patterns[list(patterns.keys())[0]]['name'] = str(i)
+        patterns[list(patterns.keys())[0]]['author'] = str(i)
+        patterns[list(patterns.keys())[0]]['script'] = str(i)
+        _sock.send(json.dumps(patterns))
+        time.sleep(1)
+        i += 1
 
 
 if __name__ == "__main__":
