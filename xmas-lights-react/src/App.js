@@ -10,20 +10,32 @@ class App extends React.Component {
             currentPattern: null,
             showModal: false,
         };
-        if(process.env.NODE_ENV === "development") {
-            this.webSocket = new WebSocket("ws://127.0.0.1:5000/ws");
-        } else {
-            this.webSocket = new WebSocket((window.location.protocol === "https:" ? "wss://" : "ws://") + window.location.host + "/ws");
+    }
+
+    beginWebSocket(url) {
+        this.webSocket = new WebSocket(url);
+
+        this.webSocket.onclose = () => {
+            setTimeout(() => this.beginWebSocket(url), 1000);
+        }
+        this.webSocket.onerror = () => {
+            setTimeout(() => this.beginWebSocket(url), 1000);
         }
         this.webSocket.onmessage = (event) => {
-            this.state.patterns = JSON.parse(event.data);
+            this.setState({patterns: JSON.parse(event.data)})
         }
     }
 
     componentDidMount() {
-        this.webSocket.onmessage = (event) => {
-            this.setState({patterns: JSON.parse(event.data)})
+        if(process.env.NODE_ENV === "development") {
+            this.beginWebSocket("ws://127.0.0.1:5000/ws")
+        } else {
+            this.beginWebSocket((window.location.protocol === "https:" ? "wss://" : "ws://") + window.location.host + "/ws");
         }
+    }
+
+    componentWillUnmount() {
+        this.webSocket.close()
     }
 
     editPattern = (patternId) => {
