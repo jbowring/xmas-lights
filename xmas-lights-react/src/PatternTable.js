@@ -60,12 +60,14 @@ function PatternRows(props) {
                 {pattern.author}
             </td>
             <td>
-                <button type="button" className="editButton" onClick={() => props.editCallback(pattern.id)}>
-                    Edit
-                </button>
-                <button type="button" className="deleteButton" onClick={() => props.deleteCallback(pattern.id)}>
-                    Delete
-                </button>
+                <div className="actionDiv">
+                    <button type="button" className="editButton" title="Edit" onClick={() => props.editCallback(pattern.id)}>
+                        <i className="bi bi-pencil-fill"></i>
+                    </button>
+                    <button type="button" className="deleteButton" title="Delete" onClick={() => props.deleteCallback(pattern.id)}>
+                        <i className="bi bi-trash3-fill"></i>
+                    </button>
+                </div>
             </td>
         </tr>
     ))
