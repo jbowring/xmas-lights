@@ -8,7 +8,7 @@ class App extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            patterns: {},
+            patterns: new Map(),
         };
     }
 
@@ -19,7 +19,12 @@ class App extends React.Component {
             this.webSocketTimeout = setTimeout(() => this.beginWebSocket(url), 1000);
         }
         this.webSocket.onmessage = (event) => {
-            this.setState({patterns: JSON.parse(event.data)})
+            this.setState({
+                patterns: new Map(Object.entries(JSON.parse(event.data)).map(([id, pattern]) => {
+                    pattern.id = id
+                    return [id, pattern]
+                }))
+            })
         }
     }
 
@@ -39,7 +44,7 @@ class App extends React.Component {
 
     editPattern = (patternId) => {
         this.modal.current.setState({
-            currentPattern: this.state.patterns[patternId],
+            currentPattern: this.state.patterns.get(patternId),
         });
     }
 

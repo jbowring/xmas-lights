@@ -29,7 +29,7 @@ function ActiveButton(props) {
         <button
             type="button"
             className={"activeButton" + (active ? ' active' : '')}
-            onClick={() => props.setPatternActiveCallback(props.patternId, !active)}
+            onClick={() => props.setPatternActiveCallback(props.pattern.id, !active)}
         >
             <h5>
                 <i className="bi bi-play-fill"/>
@@ -40,15 +40,14 @@ function ActiveButton(props) {
 }
 
 function PatternRows(props) {
-    return Object.entries(props.patterns).sort(([, pattern1], [, pattern2]) => {
+    return Array.from(props.patterns.values()).sort((pattern1, pattern2) => {
         return pattern1.name.toLowerCase().localeCompare(pattern2.name.toLowerCase())
-    }).map(([patternId, pattern]) => (
-        <tr key={patternId} className="buttonParent">
+    }).map((pattern) => (
+        <tr key={pattern.id} className="buttonParent">
             <td className="activeTd">
                 <div className="activeDiv">
                     <ErrorSymbol pattern={pattern} />
                     <ActiveButton
-                        patternId={patternId}
                         pattern={pattern}
                         setPatternActiveCallback={props.setPatternActiveCallback}
                     />
@@ -61,10 +60,10 @@ function PatternRows(props) {
                 {pattern.author}
             </td>
             <td>
-                <button type="button" className="editButton" onClick={() => props.editCallback(patternId)}>
+                <button type="button" className="editButton" onClick={() => props.editCallback(pattern.id)}>
                     Edit
                 </button>
-                <button type="button" className="deleteButton" onClick={() => props.deleteCallback(patternId)}>
+                <button type="button" className="deleteButton" onClick={() => props.deleteCallback(pattern.id)}>
                     Delete
                 </button>
             </td>
