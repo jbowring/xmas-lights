@@ -1,9 +1,11 @@
 import PatternTable from "./PatternTable";
 import React, {createRef} from "react";
 import PatternModal from "./PatternModal"
+import DeleteModal from "./DeleteModal";
 
 class App extends React.Component {
-    modal = createRef();
+    patternModal = createRef();
+    deleteModal = createRef();
 
     constructor(props) {
         super(props);
@@ -43,7 +45,7 @@ class App extends React.Component {
     }
 
     editPattern = (patternId) => {
-        this.modal.current.setState({
+        this.patternModal.current.setState({
             currentPattern: this.state.patterns.get(patternId),
         });
     }
@@ -55,10 +57,11 @@ class App extends React.Component {
                 id: patternId,
             },
         }))
+        this.deleteModal.current.close()
     }
 
     newPattern = () => {
-        this.modal.current.setState({
+        this.patternModal.current.setState({
             currentPattern: {
                 id: null,
                 name: 'name',
@@ -75,16 +78,12 @@ class App extends React.Component {
         });
     }
 
-    closeModal = () => {
-        this.modal.current.setState({currentPattern: null})
-    }
-
     sendPattern = (pattern) => {
         this.webSocket.send(JSON.stringify({
             action: 'update',
             pattern: pattern,
         }))
-        this.closeModal()
+        this.patternModal.current.close()
     }
 
     setPatternActiveCallback = (patternId, active) => {
@@ -97,6 +96,12 @@ class App extends React.Component {
         }))
     }
 
+    confirmDelete = (patternId) => {
+        this.deleteModal.current.setState({
+            currentPattern: this.state.patterns.get(patternId),
+        });
+    }
+
     render() {
         return (
           <div>
@@ -104,7 +109,7 @@ class App extends React.Component {
               <PatternTable
                   patterns={this.state.patterns}
                   editCallback={this.editPattern}
-                  deleteCallback={this.deletePattern}
+                  deleteCallback={this.confirmDelete}
                   setPatternActiveCallback={this.setPatternActiveCallback}
               />
               <div style={{display: "flex"}}>
@@ -112,7 +117,8 @@ class App extends React.Component {
                       +
                   </button>
               </div>
-              <PatternModal ref={this.modal} submitCallback={this.sendPattern} closeCallback={this.closeModal}/>
+              <PatternModal ref={this.patternModal} submitCallback={this.sendPattern}/>
+              <DeleteModal ref={this.deleteModal} deleteCallback={this.deletePattern}/>
           </div>
         );
     }

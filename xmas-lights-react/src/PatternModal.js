@@ -46,6 +46,10 @@ export default class PatternModal extends React.Component {
         }
     }
 
+    close = () => {
+        this.setState({currentPattern: null})
+    }
+
     render() {
         let show = this.state.currentPattern !== null;
 
@@ -78,7 +82,7 @@ export default class PatternModal extends React.Component {
                     </form>
                 </Modal.Body>
                 <Modal.Footer>
-                    <button type="button" className="btn btn-secondary" onClick={this.props.closeCallback}>
+                    <button type="button" className="btn btn-secondary" onClick={this.close}>
                         Close
                     </button>
                     <button type="button" className="btn btn-primary" onClick={() => this.submit(this.props.submitCallback)}>
