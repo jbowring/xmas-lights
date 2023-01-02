@@ -229,6 +229,8 @@ async def handler(websocket):
                     update_pattern(request['pattern'])
                 elif request['action'] == 'delete':
                     delete_pattern(request['pattern'])
+    except websockets.ConnectionClosedError:
+        pass
     finally:
         connected_websockets.remove(websocket)
 

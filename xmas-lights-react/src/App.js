@@ -16,10 +16,7 @@ class App extends React.Component {
         this.webSocket = new WebSocket(url);
 
         this.webSocket.onclose = () => {
-            setTimeout(() => this.beginWebSocket(url), 1000);
-        }
-        this.webSocket.onerror = () => {
-            setTimeout(() => this.beginWebSocket(url), 1000);
+            this.webSocketTimeout = setTimeout(() => this.beginWebSocket(url), 1000);
         }
         this.webSocket.onmessage = (event) => {
             this.setState({patterns: JSON.parse(event.data)})
@@ -35,6 +32,8 @@ class App extends React.Component {
     }
 
     componentWillUnmount() {
+        clearTimeout(this.webSocketTimeout)
+        this.webSocket.onclose = null
         this.webSocket.close()
     }
 
