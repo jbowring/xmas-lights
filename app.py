@@ -11,10 +11,14 @@ import websockets
 import asyncio
 import rpi_ws281x
 import flask
+import argparse
 
-max_leds = 40
-led_strip = rpi_ws281x.PixelStrip(max_leds, 18, strip_type=rpi_ws281x.WS2811_STRIP_GRB)
-led_strip.begin()
+parser = argparse.ArgumentParser()
+parser.add_argument('--websocket-test', action='store_true', help='Send websocket updates once per second')
+parser.add_argument('--disable-leds', action='store_true', help='Disable LED output')
+args = parser.parse_args()
+
+MAX_LEDS = 40
 
 connected_websockets = set()
 
@@ -83,7 +87,7 @@ GLOBAL_SCOPE = {
         'type': type,
         'zip': zip,
     },
-    'max_leds': max_leds,
+    'max_leds': MAX_LEDS,
     'seconds': 0.0,
 }
 
@@ -103,11 +107,13 @@ except (OSError, ValueError):
 def led_thread():
     global reset
     global patterns
-    global max_leds
+    global MAX_LEDS
     current_pattern = None
     script = None
     start_time = 0
     global_scope = {}
+    led_strip = rpi_ws281x.PixelStrip(MAX_LEDS, 18, strip_type=rpi_ws281x.WS2811_STRIP_GRB)
+    led_strip.begin()
 
     while True:
         try:
@@ -126,11 +132,11 @@ def led_thread():
                 global_scope['seconds'] = time.monotonic() - start_time
 
             if current_pattern is None:
-                for led_index in range(max_leds):
+                for led_index in range(MAX_LEDS):
                     led_strip.setPixelColor(led_index, 0)
             else:
                 exec(script, global_scope)
-                for led_index in range(max_leds):
+                for led_index in range(MAX_LEDS):
                     led_strip.setPixelColor(led_index, rpi_ws281x.Color(*(int(global_scope['result'][led_index][i]) for i in range(3))))
             led_strip.show()
         except Exception as exception:
@@ -237,20 +243,29 @@ async def handler(websocket):
 
 async def main():
     async with websockets.serve(handler, "localhost", 5000):
-        i = 0
-        while True:
-            patterns[99999999] = {
-                'name': str(i),
-                'author': str(i),
-                'script': str(i),
-            }
-            websockets.broadcast(connected_websockets, json.dumps(patterns))
-            await asyncio.sleep(1)
-            i += 1
-        await asyncio.Future()
+        if args.websocket_test:
+            try:
+                i = 0
+                while True:
+                    patterns['websocket_test'] = {
+                        'name': '_websockets test_',
+                        'author': str(i),
+                        'script': str(i),
+                    }
+                    websockets.broadcast(connected_websockets, json.dumps(patterns))
+                    await asyncio.sleep(1)
+                    i += 1
+            finally:
+                try:
+                    del patterns['websocket_test']
+                except KeyError:
+                    pass
+                with open(PATTERN_FILENAME, 'w') as file:
+                    file.write(json.dumps(patterns))
+        else:
+            await asyncio.Future()
 
 if __name__ == "__main__":
-    # only run LED thread if not using a development environment
-    if 'rpi_ws281x_mock' not in dir(rpi_ws281x):
+    if not args.disable_leds:
         threading.Thread(target=led_thread).start()
     asyncio.run(main())
