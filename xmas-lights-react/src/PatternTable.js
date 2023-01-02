@@ -26,7 +26,11 @@ function ActiveButton(props) {
     const active = props.pattern.hasOwnProperty('active') && props.pattern.active;
 
     return (
-        <button type="button" className={"activeButton" + (active ? ' active' : '')}>
+        <button
+            type="button"
+            className={"activeButton" + (active ? ' active' : '')}
+            onClick={() => props.setPatternActiveCallback(props.patternId, !active)}
+        >
             <h5>
                 <i className="bi bi-play-fill"/>
                 <i className="bi bi-stop-fill"/>
@@ -41,7 +45,11 @@ function PatternRows(props) {
             <td className="activeTd">
                 <div className="activeDiv">
                     <ErrorSymbol pattern={pattern} />
-                    <ActiveButton pattern={pattern} />
+                    <ActiveButton
+                        patternId={patternId}
+                        pattern={pattern}
+                        setPatternActiveCallback={props.setPatternActiveCallback}
+                    />
                 </div>
             </td>
             <td>
@@ -75,7 +83,12 @@ class PatternTable extends React.Component {
                     </tr>
                 </thead>
                 <tbody>
-                    <PatternRows patterns={this.props.patterns} editCallback={this.props.editCallback} deleteCallback={this.props.deleteCallback}/>
+                    <PatternRows
+                        patterns={this.props.patterns}
+                        editCallback={this.props.editCallback}
+                        deleteCallback={this.props.deleteCallback}
+                        setPatternActiveCallback={this.props.setPatternActiveCallback}
+                    />
                 </tbody>
             </table>
         )

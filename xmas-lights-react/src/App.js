@@ -82,11 +82,26 @@ class App extends React.Component {
         this.closeModal()
     }
 
+    setPatternActiveCallback = (patternId, active) => {
+        this.webSocket.send(JSON.stringify({
+            action: 'update',
+            pattern: {
+                id: patternId,
+                active: active,
+            },
+        }))
+    }
+
     render() {
         return (
           <div>
               <h1 className="main-title">XMAS LIGHTS</h1>
-              <PatternTable patterns={this.state.patterns} editCallback={this.editPattern} deleteCallback={this.deletePattern}/>
+              <PatternTable
+                  patterns={this.state.patterns}
+                  editCallback={this.editPattern}
+                  deleteCallback={this.deletePattern}
+                  setPatternActiveCallback={this.setPatternActiveCallback}
+              />
               <div style={{display: "flex"}}>
                   <button id="addButton" type="button" onClick={this.newPattern}>
                       +
