@@ -11,6 +11,7 @@ class App extends React.Component {
         super(props);
         this.state = {
             patterns: new Map(),
+            webSocketConnected: true,
         };
     }
 
@@ -19,6 +20,9 @@ class App extends React.Component {
 
         this.webSocket.onclose = () => {
             this.webSocketTimeout = setTimeout(() => this.beginWebSocket(url), 1000);
+            this.setState({
+                webSocketConnected: false,
+            })
         }
         this.webSocket.onmessage = (event) => {
             this.setState({
@@ -26,6 +30,11 @@ class App extends React.Component {
                     pattern.id = id
                     return [id, pattern]
                 }))
+            })
+        }
+        this.webSocket.onopen = () => {
+            this.setState({
+                webSocketConnected: true,
             })
         }
     }
@@ -119,6 +128,15 @@ class App extends React.Component {
               </div>
               <PatternModal ref={this.patternModal} submitCallback={this.sendPattern}/>
               <DeleteModal ref={this.deleteModal} deleteCallback={this.deletePattern}/>
+              <div id="warning-div" className={this.state.webSocketConnected ? '' : "warning-active"}>
+                  <div id="error-overlay" />
+                  <div className="fixed-bottom text-light" id="warning-bar">
+                      <h6 style={{"padding": "10px"}}>
+                          <i className="bi bi-exclamation-triangle" style={{"padding-right": "10px"}} />
+                          Connection to server lost, attempting to reconnect...
+                      </h6>
+                  </div>
+              </div>
           </div>
         );
     }
