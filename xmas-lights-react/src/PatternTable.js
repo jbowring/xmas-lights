@@ -40,7 +40,9 @@ function ActiveButton(props) {
 }
 
 function PatternRows(props) {
-    return Object.entries(props.patterns).map(([patternId, pattern]) => (
+    return Object.entries(props.patterns).sort(([, pattern1], [, pattern2]) => {
+        return pattern1.name.toLowerCase().localeCompare(pattern2.name.toLowerCase())
+    }).map(([patternId, pattern]) => (
         <tr key={patternId} className="buttonParent">
             <td className="activeTd">
                 <div className="activeDiv">
