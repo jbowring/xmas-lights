@@ -15,14 +15,18 @@ class App extends React.Component {
         };
     }
 
-    beginWebSocket(url) {
-        this.webSocket = new WebSocket(url);
+    beginWebSocket(urn) {
+        let protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
+        this.webSocket = new WebSocket(protocol + "//" + urn);
 
         this.webSocket.onclose = () => {
-            this.webSocketTimeout = setTimeout(() => this.beginWebSocket(url), 1000);
+            this.webSocketTimeout = setTimeout(() => this.beginWebSocket(urn), 1000);
             this.setState({
                 webSocketConnected: false,
             })
+        }
+        this.webSocket.onerror = () => {
+            fetch('https://' + urn, {credentials: 'include', mode: 'no-cors'}).then()
         }
         this.webSocket.onmessage = (event) => {
             this.setState({
@@ -41,9 +45,9 @@ class App extends React.Component {
 
     componentDidMount() {
         if(process.env.NODE_ENV === "development") {
-            this.beginWebSocket("ws://127.0.0.1:5000/ws")
+            this.beginWebSocket("127.0.0.1:5000/ws");
         } else {
-            this.beginWebSocket((window.location.protocol === "https:" ? "wss://" : "ws://") + window.location.host + "/ws");
+            this.beginWebSocket("ws.xmaslights.ml");
         }
     }
 
