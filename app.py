@@ -229,7 +229,7 @@ async def handler(websocket):
 
 
 async def main():
-    async with websockets.serve(handler, "localhost", 5000):
+    async with websockets.unix_serve(handler, "/tmp/xmas-lights.ws.sock"):
         if args.websocket_test:
             try:
                 i = 0
