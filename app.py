@@ -10,7 +10,6 @@ import traceback
 import websockets
 import asyncio
 import rpi_ws281x
-import flask
 import argparse
 
 parser = argparse.ArgumentParser()
@@ -144,19 +143,6 @@ def led_thread():
             if current_pattern is not None:
                 current_pattern['error'] = traceback.format_exc(limit=3).split('\n', 3)[3]  # TODO: Get e.line and highlight in GUI
                 current_pattern['active'] = False
-
-
-app = flask.Flask(__name__, static_url_path='/\\')
-
-
-@app.route("/<path:filename>", methods=['GET'])
-def serve_static(filename):
-    return flask.send_from_directory('xmas-lights-react/build', filename)
-
-
-@app.route("/", methods=['GET'])
-def home():
-    return flask.send_from_directory('xmas-lights-react/build', 'index.html')
 
 
 def delete_pattern(request):
