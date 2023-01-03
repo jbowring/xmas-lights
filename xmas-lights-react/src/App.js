@@ -132,7 +132,7 @@ class App extends React.Component {
                   <div id="error-overlay" />
                   <div className="fixed-bottom text-light" id="warning-bar">
                       <h6 style={{"padding": "10px"}}>
-                          <i className="bi bi-exclamation-triangle" style={{"padding-right": "10px"}} />
+                          <i className="bi bi-exclamation-triangle" style={{paddingRight: "10px"}} />
                           Connection to server lost, attempting to reconnect...
                       </h6>
                   </div>

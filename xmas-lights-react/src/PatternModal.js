@@ -42,6 +42,7 @@ export default class PatternModal extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
+            contentsModified: false,
             currentPattern: null,
         }
     }
@@ -50,11 +51,26 @@ export default class PatternModal extends React.Component {
         this.setState({currentPattern: null})
     }
 
+    checkContentsModified = () => {
+        if(this.state.currentPattern !== null) {
+            this.setState({
+                contentsModified:
+                    this.state.currentPattern.name !== this.editPatternName.current.value ||
+                    this.state.currentPattern.author !== this.editPatternAuthor.current.value ||
+                    this.state.currentPattern.script !== this.editPatternScript.current.getValue()
+            })
+        }
+    }
+
     render() {
         let show = this.state.currentPattern !== null;
 
         return (
-            <Modal size="lg" show={show}>
+            <Modal size="lg" show={show} onHide={() => {
+                if(!this.state.contentsModified) {
+                    this.close()
+                }
+            }}>
                 <Modal.Header>
                     <h1 className="modal-title fs-5">Edit pattern</h1>
                 </Modal.Header>
@@ -62,28 +78,50 @@ export default class PatternModal extends React.Component {
                     <form>
                         <div className="form-group">
                             <label htmlFor="editPatternName">Pattern name:</label>
-                            <input className="form-control" ref={this.editPatternName} type="text"
-                                   defaultValue={show ? this.state.currentPattern.name : ''}/>
+                            <input
+                                ref={this.editPatternName}
+                                className="form-control"
+                                type="text"
+                                defaultValue={show ? this.state.currentPattern.name : ''}
+                                onInput={this.checkContentsModified}
+                            />
                         </div>
                         <br/>
                         <div className="form-group">
                             <label htmlFor="editPatternAuthor">Author:</label>
-                            <input className="form-control" ref={this.editPatternAuthor} type="text"
-                                   defaultValue={show ? this.state.currentPattern.author : ''}/>
+                            <input
+                                ref={this.editPatternAuthor}
+                                className="form-control"
+                                type="text"
+                                defaultValue={show ? this.state.currentPattern.author : ''}
+                                onInput={this.checkContentsModified}
+                            />
                         </div>
                         <br/>
                         <div className="form-group">
                             <label htmlFor="monaco-editor-container">Code:</label>
                             <Instructions/>
-                            <Editor editorRef={this.editPatternScript} value={show ? this.state.currentPattern.script : ''}/>
+                            <Editor
+                                editorRef={this.editPatternScript}
+                                value={show ? this.state.currentPattern.script : ''}
+                                onChange={this.checkContentsModified}
+                            />
                         </div>
                     </form>
                 </Modal.Body>
                 <Modal.Footer>
-                    <button type="button" className="btn btn-secondary" onClick={this.close}>
-                        Close
+                    <button
+                        type="button"
+                        className={"btn btn-" + (this.state.contentsModified ? "danger" : "secondary")}
+                        onClick={this.close}
+                    >
+                        {this.state.contentsModified ? "Discard changes" : "Close"}
                     </button>
-                    <button type="button" className="btn btn-primary" onClick={() => this.submit(this.props.submitCallback)}>
+                    <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={() => this.submit(this.props.submitCallback)}
+                    >
                         Save changes
                     </button>
                 </Modal.Footer>

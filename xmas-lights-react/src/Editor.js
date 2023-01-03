@@ -32,12 +32,13 @@ export default function Editor(props) {
 				automaticLayout: true,
 				lineNumbersMinChars: 3,
 			});
+			props.editorRef.current.onDidChangeModelContent(props.onChange)
 		}
 
 		props.editorRef.current.setValue(props.value);
 
 		return () => props.editorRef.current.dispose();
-	}, [props.value, props.editorRef]);
+	}, [props.value, props.editorRef, props.onChange]);
 
 	return <div id="monaco-editor-container" ref={divEl}></div>;
 }
