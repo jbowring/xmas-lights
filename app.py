@@ -10,8 +10,8 @@ import traceback
 import websockets
 import asyncio
 import rpi_ws281x
-import flask
 import argparse
+import os
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--websocket-test', action='store_true', help='Send websocket updates once per second')
@@ -146,19 +146,6 @@ def led_thread():
                 current_pattern['active'] = False
 
 
-app = flask.Flask(__name__, static_url_path='/\\')
-
-
-@app.route("/<path:filename>", methods=['GET'])
-def serve_static(filename):
-    return flask.send_from_directory('xmas-lights-react/build', filename)
-
-
-@app.route("/", methods=['GET'])
-def home():
-    return flask.send_from_directory('xmas-lights-react/build', 'index.html')
-
-
 def delete_pattern(request):
     global reset
     global patterns
@@ -268,4 +255,5 @@ async def main():
 if __name__ == "__main__":
     if not args.disable_leds:
         threading.Thread(target=led_thread).start()
+        os.nice(1)  # avoid slowing down the rest of the system
     asyncio.run(main())
