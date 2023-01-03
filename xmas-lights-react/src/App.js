@@ -47,7 +47,7 @@ class App extends React.Component {
         if(process.env.NODE_ENV === "development") {
             this.beginWebSocket("127.0.0.1:5000/ws");
         } else {
-            this.beginWebSocket("ws.xmaslights.ml");
+            this.beginWebSocket("ws." + window.location.host);
         }
     }
 
