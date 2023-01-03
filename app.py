@@ -2,6 +2,7 @@
 
 import math
 import random
+import sys
 import time
 import json
 from pathlib import Path
@@ -12,6 +13,7 @@ import asyncio
 import rpi_ws281x
 import argparse
 import os
+import signal
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--websocket-test', action='store_true', help='Send websocket updates once per second')
@@ -91,6 +93,7 @@ GLOBAL_SCOPE = {
     'seconds': 0.0,
 }
 
+stop_requested = False
 reset = True
 
 patterns = {}
@@ -108,6 +111,8 @@ def led_thread():
     global reset
     global patterns
     global MAX_LEDS
+    global stop_requested
+
     current_pattern = None
     script = None
     start_time = 0
@@ -115,7 +120,7 @@ def led_thread():
     led_strip = rpi_ws281x.PixelStrip(MAX_LEDS, 18, strip_type=rpi_ws281x.WS2811_STRIP_GRB)
     led_strip.begin()
 
-    while True:
+    while not stop_requested:
         try:
             if reset:
                 reset = False
@@ -251,6 +256,16 @@ async def main():
                     file.write(json.dumps(patterns))
         else:
             await asyncio.Future()
+
+
+def signal_handler(signum, frame):
+    global stop_requested
+    stop_requested = True
+    sys.exit()
+
+
+signal.signal(signal.SIGTERM, signal_handler)
+signal.signal(signal.SIGINT, signal_handler)
 
 if __name__ == "__main__":
     if not args.disable_leds:
