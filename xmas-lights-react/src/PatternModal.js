@@ -1,5 +1,5 @@
 import React, {createRef} from "react";
-import Editor from "./Editor";
+import Editor from "@monaco-editor/react";
 import Modal from 'react-bootstrap/Modal';
 
 function Instructions() {
@@ -48,7 +48,10 @@ export default class PatternModal extends React.Component {
     }
 
     close = () => {
-        this.setState({currentPattern: null})
+        this.setState({
+            contentsModified: false,
+            currentPattern: null,
+        })
     }
 
     checkContentsModified = () => {
@@ -60,6 +63,10 @@ export default class PatternModal extends React.Component {
                     this.state.currentPattern.script !== this.editPatternScript.current.getValue()
             })
         }
+    }
+
+    handleEditorDidMount = (editor, monaco) => {
+        this.editPatternScript.current = editor;
     }
 
     render() {
@@ -101,11 +108,20 @@ export default class PatternModal extends React.Component {
                         <div className="form-group">
                             <label htmlFor="monaco-editor-container">Code:</label>
                             <Instructions/>
-                            <Editor
-                                editorRef={this.editPatternScript}
-                                value={show ? this.state.currentPattern.script : ''}
-                                onChange={this.checkContentsModified}
-                            />
+                            <div id="monaco-editor-container">
+                                <Editor
+                                    value={show ? this.state.currentPattern.script : ''}
+                                    language={'python'}
+                                    theme={'vs-dark'}
+                                    options={{
+                                        minimap: {enabled: false},
+                                        automaticLayout: true,
+                                        lineNumbersMinChars: 3,
+                                    }}
+                                    onMount={this.handleEditorDidMount}
+                                    onChange={this.checkContentsModified}
+                                    />
+                            </div>
                         </div>
                     </form>
                 </Modal.Body>
