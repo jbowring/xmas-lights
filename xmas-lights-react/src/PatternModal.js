@@ -1,5 +1,5 @@
 import React, {createRef} from "react";
-import Editor from "@monaco-editor/react";
+import Editor, {loader} from "@monaco-editor/react";
 import Modal from 'react-bootstrap/Modal';
 
 function Instructions() {
@@ -45,6 +45,7 @@ export default class PatternModal extends React.Component {
             contentsModified: false,
             currentPattern: null,
         }
+        loader.init();
     }
 
     close = () => {
