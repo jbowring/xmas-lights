@@ -2,6 +2,11 @@ import PatternTable from "./PatternTable";
 import React, {createRef} from "react";
 import PatternModal from "./PatternModal"
 import DeleteModal from "./DeleteModal";
+import Schedule from "./Schedule";
+
+function dateSeconds(day, hour, minute, seconds=0) {
+    return (((((day * 24) + hour) * 60) + minute) * 60)
+}
 
 class App extends React.Component {
     patternModal = createRef();
@@ -10,7 +15,9 @@ class App extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
+            now: new Date(),
             patterns: new Map(),
+            events: [],
             webSocketConnected: true,
         };
     }
@@ -25,12 +32,20 @@ class App extends React.Component {
             })
         }
         this.webSocket.onmessage = (event) => {
-            this.setState({
-                patterns: new Map(Object.entries(JSON.parse(event.data)).map(([id, pattern]) => {
-                    pattern.id = id
-                    return [id, pattern]
-                }))
-            })
+            const data = JSON.parse(event.data)
+
+            if(data.hasOwnProperty("patterns")) {
+                this.setState({
+                    patterns: new Map(Object.entries(data.patterns).map(([id, pattern]) => {
+                        pattern.id = id
+                        return [id, pattern]
+                    }))
+                })
+            }
+
+            if(data.hasOwnProperty("events")) {
+                this.setState({events: data.events})
+            }
         }
         this.webSocket.onopen = () => {
             this.setState({
@@ -45,12 +60,17 @@ class App extends React.Component {
         } else {
             this.beginWebSocket((window.location.protocol === "https:" ? "wss://" : "ws://") + window.location.host + "/ws");
         }
+        this.setState({now: new Date()})
+
+        this.timer = setInterval(() => this.setState({now: new Date()}), 1000)
     }
 
     componentWillUnmount() {
         clearTimeout(this.webSocketTimeout)
         this.webSocket.onclose = null
         this.webSocket.close()
+
+        clearInterval(this.timer)
     }
 
     editPattern = (patternId) => {
@@ -112,10 +132,38 @@ class App extends React.Component {
     }
 
     render() {
+        const nowDay = (this.state.now.getUTCDay() - 1) % 7
+        const nowSeconds = dateSeconds(nowDay, this.state.now.getUTCHours(), this.state.now.getUTCMinutes(), this.state.now.getUTCSeconds())
+
+        let events = this.state.events.sort((event1, event2) => {
+            function wrap(event) {
+                let seconds = dateSeconds(event.day, event.hour, event.minute) - nowSeconds
+                if (seconds < 0) {
+                    return seconds + dateSeconds(6, 24, 60, 60);
+                } else {
+                    return seconds
+                }
+            }
+            return wrap(event1) - wrap(event2)
+        })
+
+        let lightsEnabled = true
+        let last = events[events.length - 1]
+        if(last !== undefined) {
+            lightsEnabled = (last.action === "on")
+        }
+
         return (
           <div>
               <h1 className="main-title">XMAS LIGHTS</h1>
+
+              <Schedule
+                  events={events}
+                  nowDay={nowDay}
+                  lightsEnabled={lightsEnabled}
+                  patterns={this.state.patterns} />
               <PatternTable
+                  lightsEnabled={lightsEnabled}
                   patterns={this.state.patterns}
                   editCallback={this.editPattern}
                   deleteCallback={this.confirmDelete}

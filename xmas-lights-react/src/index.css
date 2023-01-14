@@ -181,8 +181,29 @@ h6 {
   color: blue;
 }
 
-body {
-  background: #fff4f4;
+#schedule-button {
+  margin-left: auto;
+  margin-right: auto;
+  background-color: transparent;
+  border-radius: 100vh;
+  border: none;
+  /*border: 1.6px solid gray;*/
+  font-size: 14px;
+  /*color: #656565;*/
+  /*color: #1c73f5;*/
+  /*color: grey;*/
+  color: rgba(0, 0, 255, 0.65);
+}
+
+#schedule-button:hover {
+  /*color: #808080;*/
+  /*color: #005bde;*/
+  /*color: #616161;*/
+  color: rgba(0, 0, 255, 0.88);
+}
+
+#schedule-button.schedule-error {
+  color: grey;
 }
 
 table {

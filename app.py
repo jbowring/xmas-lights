@@ -14,6 +14,7 @@ import rpi_ws281x
 import argparse
 import os
 import signal
+import datetime
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--websocket-test', action='store_true', help='Send websocket updates once per second')
@@ -96,20 +97,36 @@ GLOBAL_SCOPE = {
 stop_requested = False
 reset = True
 
-patterns = {}
+data = {}
 
 PATTERN_FILENAME = Path(__file__).parent / "patterns.json"
 
 try:
     with open(PATTERN_FILENAME) as file:
-        patterns = json.loads(file.read())
+        data = json.loads(file.read())
 except (OSError, ValueError):
     pass
+
+schedule = {
+    'events': [
+        {
+            'day': day,
+            'hour': 8,
+            'minute': 45,
+            'action': 'on',
+        } for day in range(5)] + [
+        {
+            'day': day,
+            'hour': 18,
+            'minute': 30,
+            'action': 'off',
+        } for day in range(5)]
+}
 
 
 def led_thread():
     global reset
-    global patterns
+    global data
     global MAX_LEDS
     global stop_requested
 
@@ -125,7 +142,7 @@ def led_thread():
             if reset:
                 reset = False
                 current_pattern = None
-                for pattern in patterns.values():
+                for pattern in data['patterns'].values():
                     if pattern['active']:
                         current_pattern = pattern
                         current_pattern['error'] = None
@@ -153,26 +170,26 @@ def led_thread():
 
 def delete_pattern(request):
     global reset
-    global patterns
+    global data
     global PATTERN_FILENAME
 
     try:
         pattern_id = request['id']
-        do_reset = patterns[pattern_id].get('active', False)
-        del patterns[pattern_id]
+        do_reset = data['patterns'][pattern_id].get('active', False)
+        del data['patterns'][pattern_id]
         if do_reset:
             reset = True
     except KeyError:
         return "Invalid Pattern ID", 400  # TODO handle error
     else:
         with open(PATTERN_FILENAME, 'w') as file:
-            file.write(json.dumps(patterns))
-        websockets.broadcast(connected_websockets, json.dumps(patterns))
+            file.write(json.dumps(data))
+        websockets.broadcast(connected_websockets, json.dumps(data))
 
 
 def update_pattern(request):
     global reset
-    global patterns
+    global data
     global PATTERN_FILENAME
 
     json_keys = {
@@ -189,6 +206,8 @@ def update_pattern(request):
         pattern_id = request['id']
     else:
         pattern_id = str(random.getrandbits(32))
+
+    patterns = data['patterns']
 
     # allow partial update if pattern_id already exists
     if pattern_id in patterns or all(key_valid(request, key, key_type) for key, key_type in json_keys.items()):
@@ -207,8 +226,8 @@ def update_pattern(request):
             reset = True
 
         with open(PATTERN_FILENAME, 'w') as file:
-            file.write(json.dumps(patterns))
-        websockets.broadcast(connected_websockets, json.dumps(patterns))
+            file.write(json.dumps(data))
+        websockets.broadcast(connected_websockets, json.dumps(data))
 
     else:
         return "Incomplete request", 400  # TODO handle error
@@ -217,7 +236,7 @@ def update_pattern(request):
 async def handler(websocket):
     connected_websockets.add(websocket)
     try:
-        await websocket.send(json.dumps(patterns))
+        await websocket.send(json.dumps(data))
         async for message in websocket:
             request = json.loads(message)
             if all(key in request for key in ['action', 'pattern']):
@@ -234,28 +253,46 @@ async def handler(websocket):
 
 
 async def main():
-    async with websockets.unix_serve(handler, "/tmp/xmas-lights.ws.sock"):
+    # async with websockets.unix_serve(handler, "/tmp/xmas-lights.ws.sock"):
+    async with websockets.serve(handler, "localhost", 5000):
         if args.websocket_test:
             try:
                 i = 0
                 while True:
-                    patterns['websocket_test'] = {
+                    data['patterns']['websocket_test'] = {
                         'name': '_websockets test_',
                         'author': str(i),
                         'script': str(i),
                     }
-                    websockets.broadcast(connected_websockets, json.dumps(patterns))
+                    websockets.broadcast(connected_websockets, json.dumps(data))
                     await asyncio.sleep(1)
                     i += 1
             finally:
                 try:
-                    del patterns['websocket_test']
+                    del data['patterns']['websocket_test']
                 except KeyError:
                     pass
                 with open(PATTERN_FILENAME, 'w') as file:
-                    file.write(json.dumps(patterns))
+                    file.write(json.dumps(data))
         else:
             await asyncio.Future()
+
+
+def calculate_schedule():
+    global data
+
+    def date_seconds(weekday, hour, minute, second=0):
+        return (((((weekday * 24) + hour) * 60) + minute) * 60) + second
+
+    now = datetime.datetime.utcnow()
+    now_seconds = date_seconds(now.weekday(), now.hour, now.minute, now.second)
+    week_seconds = date_seconds(6, 24, 60, 60)
+
+    def to_seconds_from_now(event):
+        return (date_seconds(event['day'], event['hour'], event['minute']) - now_seconds) % week_seconds
+
+    data['events'].sort(key=to_seconds_from_now)
+    print(data['events'])
 
 
 def signal_handler(signum, frame):
@@ -268,6 +305,7 @@ signal.signal(signal.SIGTERM, signal_handler)
 signal.signal(signal.SIGINT, signal_handler)
 
 if __name__ == "__main__":
+    calculate_schedule()
     if not args.disable_leds:
         threading.Thread(target=led_thread).start()
         os.nice(1)  # avoid slowing down the rest of the system

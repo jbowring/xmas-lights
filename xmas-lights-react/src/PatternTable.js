@@ -22,6 +22,19 @@ function ErrorSymbol(props) {
     )
 }
 
+function playStopIcons() {
+    return (
+        <h5>
+            <i className="bi bi-play-fill"/>
+            <i className="bi bi-stop-fill"/>
+        </h5>
+    )
+}
+
+function scheduleIcon() {
+    return <i style={{fontSize: "16px"}} className="bi bi-alarm"/>
+}
+
 function ActiveButton(props) {
     const active = props.pattern.hasOwnProperty('active') && props.pattern.active;
 
@@ -31,10 +44,7 @@ function ActiveButton(props) {
             className={"activeButton" + (active ? ' active' : '')}
             onClick={() => props.setPatternActiveCallback(props.pattern.id, !active)}
         >
-            <h5>
-                <i className="bi bi-play-fill"/>
-                <i className="bi bi-stop-fill"/>
-            </h5>
+            {props.lightsEnabled ? playStopIcons() : scheduleIcon()}
         </button>
     )
 }
@@ -48,6 +58,7 @@ function PatternRows(props) {
                 <div className="activeDiv">
                     <ErrorSymbol pattern={pattern} />
                     <ActiveButton
+                        lightsEnabled={props.lightsEnabled}
                         pattern={pattern}
                         setPatternActiveCallback={props.setPatternActiveCallback}
                     />
@@ -87,6 +98,7 @@ class PatternTable extends React.Component {
                 </thead>
                 <tbody>
                     <PatternRows
+                        lightsEnabled={this.props.lightsEnabled}
                         patterns={this.props.patterns}
                         editCallback={this.props.editCallback}
                         deleteCallback={this.props.deleteCallback}
