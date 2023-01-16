@@ -20,14 +20,7 @@ args = parser.parse_args()
 
 connected_websockets = set()
 data = {}
-
 PATTERN_FILENAME = pathlib.Path(__file__).parent / "patterns.json"
-
-try:
-    with open(PATTERN_FILENAME) as file:
-        data = json.loads(file.read())
-except (OSError, ValueError):
-    pass
 
 schedule = {
     'events': [
@@ -46,6 +39,25 @@ schedule = {
 }
 
 
+def read_patterns_file():
+    global PATTERN_FILENAME
+    global data
+
+    try:
+        with open(PATTERN_FILENAME) as file:
+            data = json.loads(file.read())
+    except (OSError, ValueError):
+        pass
+
+
+def write_patterns_file():
+    global PATTERN_FILENAME
+    global data
+
+    with open(PATTERN_FILENAME, 'w') as file:
+        file.write(json.dumps(data))
+
+
 def delete_pattern(request, led_thread):
     global data
     global PATTERN_FILENAME
@@ -58,8 +70,7 @@ def delete_pattern(request, led_thread):
     except KeyError:
         return "Invalid Pattern ID", 400  # TODO handle error
     else:
-        with open(PATTERN_FILENAME, 'w') as file:
-            file.write(json.dumps(data))
+        write_patterns_file()
         websockets.broadcast(connected_websockets, json.dumps(data))
 
 
@@ -100,8 +111,7 @@ def update_pattern(request, led_thread):
         if update:
             led_thread.set_pattern(patterns[pattern_id] | {'id': pattern_id})
 
-        with open(PATTERN_FILENAME, 'w') as file:
-            file.write(json.dumps(data))
+        write_patterns_file()
         websockets.broadcast(connected_websockets, json.dumps(data))
 
     else:
@@ -161,8 +171,7 @@ async def main():
                     del data['patterns']['websocket_test']
                 except KeyError:
                     pass
-                with open(PATTERN_FILENAME, 'w') as file:
-                    file.write(json.dumps(data))
+                write_patterns_file()
         else:
             await asyncio.Future()
 
@@ -193,11 +202,11 @@ def process_error(pattern_id, error):
     except KeyError:
         pass
     else:
-        with open(PATTERN_FILENAME, 'w') as file:
-            file.write(json.dumps(data))
+        write_patterns_file()
         websockets.broadcast(connected_websockets, json.dumps(data))
 
 
 if __name__ == "__main__":
+    read_patterns_file()
     calculate_schedule()
     asyncio.run(main())
