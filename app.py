@@ -1,105 +1,27 @@
 #!/usr/bin/python
 
-import math
 import random
 import sys
-import time
 import json
-from pathlib import Path
-import threading
-import traceback
+import pathlib
+import rpi_ws281x
 import websockets
 import asyncio
-import rpi_ws281x
 import argparse
 import os
 import signal
 import datetime
+from led_thread import LEDThread
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--websocket-test', action='store_true', help='Send websocket updates once per second')
 parser.add_argument('--disable-leds', action='store_true', help='Disable LED output')
 args = parser.parse_args()
 
-MAX_LEDS = 40
-
 connected_websockets = set()
-
-# Global scope for script interpretation
-GLOBAL_SCOPE = {
-    'math': math,
-    'random': random,
-    '__builtins__': {
-        '__build_class__': __build_class__,
-        '__name__': '',
-        'abs': abs,
-        'all': all,
-        'any': any,
-        'bin': bin,
-        'bool': bool,
-        'bytearray': bytearray,
-        'bytes': bytes,
-        'callable': callable,
-        'chr': chr,
-        'complex': complex,
-        'delattr': delattr,
-        'dict': dict,
-        'dir': dir,
-        'divmod': divmod,
-        'enumerate': enumerate,
-        'filter': filter,
-        'float': float,
-        'frozenset': frozenset,
-        'getattr': getattr,
-        'globals': globals,
-        'hasattr': hasattr,
-        'hash': hash,
-        'help': help,
-        'hex': hex,
-        'id': id,
-        'int': int,
-        'isinstance': isinstance,
-        'issubclass': issubclass,
-        'iter': iter,
-        'len': len,
-        'list': list,
-        'locals': locals,
-        'map': map,
-        'max': max,
-        'memoryview': memoryview,
-        'min': min,
-        'next': next,
-        'object': object,
-        'oct': oct,
-        'ord': ord,
-        'pow': pow,
-        'print': print,
-        'property': property,
-        'range': range,
-        'repr': repr,
-        'reversed': reversed,
-        'round': round,
-        'set': set,
-        'setattr': setattr,
-        'slice': slice,
-        'sorted': sorted,
-        'str': str,
-        'sum': sum,
-        'super': super,
-        'tuple': tuple,
-        'type': type,
-        'zip': zip,
-    },
-    'max_leds': MAX_LEDS,
-    'seconds': 0.0,
-}
-
-stop_requested = False
-reset = True
-
 data = {}
 
-PATTERN_FILENAME = Path(__file__).parent / "patterns.json"
+PATTERN_FILENAME = pathlib.Path(__file__).parent / "patterns.json"
 
 try:
     with open(PATTERN_FILENAME) as file:
@@ -124,61 +46,15 @@ schedule = {
 }
 
 
-def led_thread():
-    global reset
-    global data
-    global MAX_LEDS
-    global stop_requested
-
-    current_pattern = None
-    script = None
-    start_time = 0
-    global_scope = {}
-    led_strip = rpi_ws281x.PixelStrip(MAX_LEDS, 18, strip_type=rpi_ws281x.WS2811_STRIP_GRB)
-    led_strip.begin()
-
-    while not stop_requested:
-        try:
-            if reset:
-                reset = False
-                current_pattern = None
-                for pattern in data['patterns'].values():
-                    if pattern['active']:
-                        current_pattern = pattern
-                        current_pattern['error'] = None
-                        script = compile(current_pattern['script'], current_pattern['name'], 'exec')
-                        global_scope = dict(GLOBAL_SCOPE)
-                        start_time = time.monotonic()
-                        break
-            else:
-                global_scope['seconds'] = time.monotonic() - start_time
-
-            if current_pattern is None:
-                for led_index in range(MAX_LEDS):
-                    led_strip.setPixelColor(led_index, 0)
-            else:
-                exec(script, global_scope)
-                for led_index in range(MAX_LEDS):
-                    led_strip.setPixelColor(led_index, rpi_ws281x.Color(*(int(global_scope['result'][led_index][i]) for i in range(3))))
-            led_strip.show()
-        except Exception as exception:
-            reset = True
-            if current_pattern is not None:
-                current_pattern['error'] = traceback.format_exc(limit=3).split('\n', 3)[3]  # TODO: Get e.line and highlight in GUI
-                current_pattern['active'] = False
-
-
-def delete_pattern(request):
-    global reset
+def delete_pattern(request, led_thread):
     global data
     global PATTERN_FILENAME
 
     try:
         pattern_id = request['id']
-        do_reset = data['patterns'][pattern_id].get('active', False)
+        if data['patterns'][pattern_id].get('active', False):
+            led_thread.clear_pattern()
         del data['patterns'][pattern_id]
-        if do_reset:
-            reset = True
     except KeyError:
         return "Invalid Pattern ID", 400  # TODO handle error
     else:
@@ -187,8 +63,7 @@ def delete_pattern(request):
         websockets.broadcast(connected_websockets, json.dumps(data))
 
 
-def update_pattern(request):
-    global reset
+def update_pattern(request, led_thread):
     global data
     global PATTERN_FILENAME
 
@@ -213,7 +88,7 @@ def update_pattern(request):
     if pattern_id in patterns or all(key_valid(request, key, key_type) for key, key_type in json_keys.items()):
         if pattern_id not in patterns:
             patterns[pattern_id] = {}
-        do_reset = patterns[pattern_id].get('active', False) or request.get('active', False)
+        update = patterns[pattern_id].get('active', False) or request.get('active', False)
         for key, key_type in json_keys.items():
             if key_valid(request, key, key_type):
                 if key == 'active' and request[key] is True:
@@ -222,8 +97,8 @@ def update_pattern(request):
                         pattern['active'] = False
                 patterns[pattern_id][key] = request[key]
 
-        if do_reset:
-            reset = True
+        if update:
+            led_thread.set_pattern(patterns[pattern_id] | {'id': pattern_id})
 
         with open(PATTERN_FILENAME, 'w') as file:
             file.write(json.dumps(data))
@@ -233,7 +108,7 @@ def update_pattern(request):
         return "Incomplete request", 400  # TODO handle error
 
 
-async def handler(websocket):
+async def websocket_handler(websocket, led_thread):
     connected_websockets.add(websocket)
     try:
         await websocket.send(json.dumps(data))
@@ -241,11 +116,11 @@ async def handler(websocket):
             request = json.loads(message)
             if all(key in request for key in ['action', 'pattern']):
                 if request['action'] == 'create':
-                    update_pattern(request['pattern'])
+                    update_pattern(request['pattern'], led_thread)
                 elif request['action'] == 'update':
-                    update_pattern(request['pattern'])
+                    update_pattern(request['pattern'], led_thread)
                 elif request['action'] == 'delete':
-                    delete_pattern(request['pattern'])
+                    delete_pattern(request['pattern'], led_thread)
     except websockets.ConnectionClosedError:
         pass
     finally:
@@ -253,8 +128,22 @@ async def handler(websocket):
 
 
 async def main():
+    led_thread = LEDThread(
+        event_loop=asyncio.get_running_loop(),
+        error_callback=process_error,
+        led_strip=rpi_ws281x.PixelStrip(40, 18, strip_type=rpi_ws281x.WS2811_STRIP_GRB)
+    )
+
+    async def websocket_wrapper(websocket):
+        await websocket_handler(websocket, led_thread)
+
     # async with websockets.unix_serve(handler, "/tmp/xmas-lights.ws.sock"):
-    async with websockets.serve(handler, "localhost", 5000):
+    async with websockets.serve(websocket_wrapper, "localhost", 5000):
+        if not args.disable_leds:
+            signal.signal(signal.SIGINT, lambda signum, frame: [led_thread.stop(), sys.exit()])
+            led_thread.start()
+            os.nice(1)  # avoid slowing down the rest of the system
+
         if args.websocket_test:
             try:
                 i = 0
@@ -295,18 +184,20 @@ def calculate_schedule():
     print(data['events'])
 
 
-def signal_handler(signum, frame):
-    global stop_requested
-    stop_requested = True
-    sys.exit()
+def process_error(pattern_id, error):
+    try:
+        data['patterns'][pattern_id] |= {
+            'error': error,
+            'active': False,
+        }
+    except KeyError:
+        pass
+    else:
+        with open(PATTERN_FILENAME, 'w') as file:
+            file.write(json.dumps(data))
+        websockets.broadcast(connected_websockets, json.dumps(data))
 
-
-signal.signal(signal.SIGTERM, signal_handler)
-signal.signal(signal.SIGINT, signal_handler)
 
 if __name__ == "__main__":
     calculate_schedule()
-    if not args.disable_leds:
-        threading.Thread(target=led_thread).start()
-        os.nice(1)  # avoid slowing down the rest of the system
     asyncio.run(main())
