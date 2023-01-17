@@ -43,14 +43,14 @@ def write_patterns_file():
         file.write(json.dumps(data))
 
 
-def delete_pattern(request, led_thread):
+def delete_pattern(request, schedule_queue):
     global data
     global PATTERN_FILENAME
 
     try:
         pattern_id = request['id']
         if data['patterns'][pattern_id].get('active', False):
-            led_thread.clear_pattern()
+            schedule_queue.put_nowait('pattern update')
         del data['patterns'][pattern_id]
     except KeyError:
         return "Invalid Pattern ID", 400  # TODO handle error
@@ -59,7 +59,7 @@ def delete_pattern(request, led_thread):
         websockets.broadcast(connected_websockets, json.dumps(data))
 
 
-def update_pattern(request, led_thread):
+def update_pattern(request, schedule_queue):
     global data
     global PATTERN_FILENAME
 
@@ -94,7 +94,7 @@ def update_pattern(request, led_thread):
                 patterns[pattern_id][key] = request[key]
 
         if update:
-            led_thread.set_pattern(patterns[pattern_id] | {'id': pattern_id})
+            schedule_queue.put_nowait('pattern update')
 
         write_patterns_file()
         websockets.broadcast(connected_websockets, json.dumps(data))
@@ -103,7 +103,7 @@ def update_pattern(request, led_thread):
         return "Incomplete request", 400  # TODO handle error
 
 
-async def websocket_handler(websocket, led_thread):
+async def websocket_handler(websocket, schedule_queue):
     connected_websockets.add(websocket)
     try:
         await websocket.send(json.dumps(data))
@@ -111,69 +111,85 @@ async def websocket_handler(websocket, led_thread):
             request = json.loads(message)
             if all(key in request for key in ['action', 'pattern']):
                 if request['action'] == 'create':
-                    update_pattern(request['pattern'], led_thread)
+                    update_pattern(request['pattern'], schedule_queue)
                 elif request['action'] == 'update':
-                    update_pattern(request['pattern'], led_thread)
+                    update_pattern(request['pattern'], schedule_queue)
                 elif request['action'] == 'delete':
-                    delete_pattern(request['pattern'], led_thread)
+                    delete_pattern(request['pattern'], schedule_queue)
     except websockets.ConnectionClosedError:
         pass
     finally:
         connected_websockets.remove(websocket)
 
 
-def calculate_schedule():
+async def run_schedule(schedule_queue):
     global data
-
-    def date_seconds(weekday, hour, minute, second=0):
-        return (((((weekday * 24) + hour) * 60) + minute) * 60) + second
-
-    now = datetime.datetime.utcnow()
-    now_seconds = date_seconds(now.weekday(), now.hour, now.minute, now.second)
-    week_seconds = date_seconds(6, 24, 60, 60)
-
-    def to_seconds_from_now(event):
-        return (date_seconds(event['day'], event['hour'], event['minute']) - now_seconds) % week_seconds
 
     if 'schedule' not in data:
         data['schedule'] = {}
     if 'events' not in data['schedule']:
         data['schedule']['events'] = []
 
-    data['schedule']['events'].sort(key=to_seconds_from_now)
+    loop = asyncio.get_running_loop()
+    led_thread = LEDThread(
+        error_callback=lambda pattern_id, error: loop.call_soon_threadsafe(
+            process_error,
+            pattern_id,
+            error
+        ),
+        led_strip=rpi_ws281x.PixelStrip(args.led_count, 18, strip_type=rpi_ws281x.WS2811_STRIP_GRB)
+    )
 
-    if len(data['schedule']['events']) > 0:
-        next_event = data['schedule']['events'][0]
-        next_time = datetime.datetime.combine(
-            date=now.date() + datetime.timedelta(days=(next_event['day'] - now.weekday()) % 7),
-            time=datetime.time(next_event['hour'], next_event['minute'])
-        )
-        return (
-            data['schedule']['events'][-1]['action'],
-            {
-                'next': next_time,
-                'action': next_event['action'],
-            }
-        )
-    else:
-        return True, None
-
-
-async def run_schedule():
-    timer_task = None
+    if not args.disable_leds:
+        signal.signal(signal.SIGINT, lambda signum, frame: [led_thread.stop(), sys.exit()])
+        led_thread.start()
+        os.nice(1)  # avoid slowing down the rest of the system
 
     while True:
-        current_action, next_event = calculate_schedule()
-        if current_action == 'on':
-            pass  # set active pattern going
-        if next_event is not None:
-            pass  # set up timer for next event
+        now = datetime.datetime.now()
 
-        # broadcast to websockets
+        events = [{
+            'action': event['action'],
+            'next_datetime': datetime.datetime.combine(
+                date=now.date() + datetime.timedelta(days=(event['day'] - now.weekday()) % 7),
+                time=datetime.time(event['hour'], event['minute'])
+            )
+        } for event in data['schedule']['events']]
 
-        # wait for signal from timer task or from events being updated
+        for event in events:
+            if event['next_datetime'] < now:
+                event['next_datetime'] += datetime.timedelta(days=7)
 
-        break  # TODO remove
+        events.sort(key=lambda event: event['next_datetime'])
+
+        on = (len(events) < 1) or (events[-1]['action'] == 'on')
+
+        websockets.broadcast(connected_websockets, json.dumps({
+            'schedule': data['schedule'] | {'status': 'on' if on else 'off'}
+        }))
+
+        while True:
+            if on and any(pattern['active'] for pattern in data['patterns'].values()):
+                for pattern_id, pattern in data['patterns'].items():
+                    if pattern['active']:
+                        led_thread.set_pattern(pattern | {'id': pattern_id})
+                        break
+            else:
+                led_thread.clear_pattern()
+
+            try:
+                if len(events) > 0:
+                    message = await asyncio.wait_for(
+                        schedule_queue.get(),
+                        (events[0]['next_datetime'] - datetime.datetime.now()).total_seconds()
+                    )
+                else:
+                    message = await schedule_queue.get()
+
+                if message == 'schedule update':
+                    break
+            except asyncio.exceptions.TimeoutError:
+                break
 
 
 def process_error(pattern_id, error):
@@ -194,6 +210,7 @@ async def websockets_test():
         i = 0
         while True:
             data['patterns']['websocket_test'] = {
+                'active': False,
                 'name': '_websockets test_',
                 'author': str(i),
                 'script': str(i),
@@ -211,26 +228,14 @@ async def websockets_test():
 
 async def main():
     read_patterns_file()
-    loop = asyncio.get_running_loop()
-    led_thread = LEDThread(
-        error_callback=lambda pattern_id, error: loop.call_soon_threadsafe(
-            process_error,
-            pattern_id,
-            error
-        ),
-        led_strip=rpi_ws281x.PixelStrip(args.led_count, 18, strip_type=rpi_ws281x.WS2811_STRIP_GRB)
-    )
+    schedule_queue = asyncio.Queue()
 
     async def websocket_wrapper(websocket):
-        await websocket_handler(websocket, led_thread)
+        await websocket_handler(websocket, schedule_queue)
 
     # async with websockets.unix_serve(handler, "/tmp/xmas-lights.ws.sock"):
     async with websockets.serve(websocket_wrapper, "localhost", 5000):
-        asyncio.create_task(run_schedule())
-        if not args.disable_leds:
-            signal.signal(signal.SIGINT, lambda signum, frame: [led_thread.stop(), sys.exit()])
-            led_thread.start()
-            os.nice(1)  # avoid slowing down the rest of the system
+        asyncio.create_task(run_schedule(schedule_queue))
 
         if args.websocket_test:
             await websockets_test()

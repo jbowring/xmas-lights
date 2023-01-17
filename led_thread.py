@@ -122,10 +122,7 @@ class LEDThread(threading.Thread):
                 try:
                     message = self.__queue.get(current_pattern is None)
                     if message['type'] == 'pattern':
-                        if message['payload']['active']:
-                            current_pattern = message['payload']
-                        else:
-                            current_pattern = None
+                        current_pattern = message['payload']
                     elif message['type'] == 'stop':
                         self.__turn_off()
                         break
