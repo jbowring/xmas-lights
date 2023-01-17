@@ -14,8 +14,9 @@ import datetime
 from led_thread import LEDThread
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--websocket-test', action='store_true', help='Send websocket updates once per second')
+parser.add_argument('--led-count', action='store', required=True, type=int, help='Number of LEDs')
 parser.add_argument('--disable-leds', action='store_true', help='Disable LED output')
+parser.add_argument('--websocket-test', action='store_true', help='Send websocket updates once per second')
 args = parser.parse_args()
 
 connected_websockets = set()
@@ -210,16 +211,14 @@ async def websockets_test():
 
 async def main():
     read_patterns_file()
-
     loop = asyncio.get_running_loop()
-
     led_thread = LEDThread(
         error_callback=lambda pattern_id, error: loop.call_soon_threadsafe(
             process_error,
             pattern_id,
             error
         ),
-        led_strip=rpi_ws281x.PixelStrip(40, 18, strip_type=rpi_ws281x.WS2811_STRIP_GRB)
+        led_strip=rpi_ws281x.PixelStrip(args.led_count, 18, strip_type=rpi_ws281x.WS2811_STRIP_GRB)
     )
 
     async def websocket_wrapper(websocket):
