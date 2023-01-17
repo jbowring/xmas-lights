@@ -1,4 +1,3 @@
-import asyncio
 import math
 import queue
 import random
@@ -6,13 +5,18 @@ import rpi_ws281x
 import threading
 import time
 import traceback
+import typing
 
 
 class LEDThread(threading.Thread):
-    def __init__(self, *, event_loop: asyncio.AbstractEventLoop, error_callback, led_strip: rpi_ws281x.PixelStrip):
+    def __init__(
+            self,
+            *,
+            error_callback: typing.Callable[[typing.Any, typing.Any], typing.Any],
+            led_strip: rpi_ws281x.PixelStrip
+    ):
         super().__init__()
         self.__queue = queue.Queue(1)
-        self.__event_loop = event_loop
         self.__error_callback = error_callback
         self.__led_strip = led_strip
 
@@ -146,8 +150,7 @@ class LEDThread(threading.Thread):
                 self.__turn_off()
                 if current_pattern is not None:
                     # TODO: Get error line and highlight in GUI
-                    self.__event_loop.call_soon_threadsafe(
-                        self.__error_callback,
+                    self.__error_callback(
                         current_pattern['id'],
                         traceback.format_exc(limit=3).split('\n', 3)[3]
                     )

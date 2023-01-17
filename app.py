@@ -22,22 +22,6 @@ connected_websockets = set()
 data = {}
 PATTERN_FILENAME = pathlib.Path(__file__).parent / "patterns.json"
 
-schedule = {
-    'events': [
-        {
-            'day': day,
-            'hour': 8,
-            'minute': 45,
-            'action': 'on',
-        } for day in range(5)] + [
-        {
-            'day': day,
-            'hour': 18,
-            'minute': 30,
-            'action': 'off',
-        } for day in range(5)]
-}
-
 
 def read_patterns_file():
     global PATTERN_FILENAME
@@ -137,45 +121,6 @@ async def websocket_handler(websocket, led_thread):
         connected_websockets.remove(websocket)
 
 
-async def main():
-    led_thread = LEDThread(
-        event_loop=asyncio.get_running_loop(),
-        error_callback=process_error,
-        led_strip=rpi_ws281x.PixelStrip(40, 18, strip_type=rpi_ws281x.WS2811_STRIP_GRB)
-    )
-
-    async def websocket_wrapper(websocket):
-        await websocket_handler(websocket, led_thread)
-
-    # async with websockets.unix_serve(handler, "/tmp/xmas-lights.ws.sock"):
-    async with websockets.serve(websocket_wrapper, "localhost", 5000):
-        if not args.disable_leds:
-            signal.signal(signal.SIGINT, lambda signum, frame: [led_thread.stop(), sys.exit()])
-            led_thread.start()
-            os.nice(1)  # avoid slowing down the rest of the system
-
-        if args.websocket_test:
-            try:
-                i = 0
-                while True:
-                    data['patterns']['websocket_test'] = {
-                        'name': '_websockets test_',
-                        'author': str(i),
-                        'script': str(i),
-                    }
-                    websockets.broadcast(connected_websockets, json.dumps(data))
-                    await asyncio.sleep(1)
-                    i += 1
-            finally:
-                try:
-                    del data['patterns']['websocket_test']
-                except KeyError:
-                    pass
-                write_patterns_file()
-        else:
-            await asyncio.Future()
-
-
 def calculate_schedule():
     global data
 
@@ -189,8 +134,45 @@ def calculate_schedule():
     def to_seconds_from_now(event):
         return (date_seconds(event['day'], event['hour'], event['minute']) - now_seconds) % week_seconds
 
-    data['events'].sort(key=to_seconds_from_now)
-    print(data['events'])
+    if 'schedule' not in data:
+        data['schedule'] = {}
+    if 'events' not in data['schedule']:
+        data['schedule']['events'] = []
+
+    data['schedule']['events'].sort(key=to_seconds_from_now)
+
+    if len(data['schedule']['events']) > 0:
+        next_event = data['schedule']['events'][0]
+        next_time = datetime.datetime.combine(
+            date=now.date() + datetime.timedelta(days=(next_event['day'] - now.weekday()) % 7),
+            time=datetime.time(next_event['hour'], next_event['minute'])
+        )
+        return (
+            data['schedule']['events'][-1]['action'],
+            {
+                'next': next_time,
+                'action': next_event['action'],
+            }
+        )
+    else:
+        return True, None
+
+
+async def run_schedule():
+    timer_task = None
+
+    while True:
+        current_action, next_event = calculate_schedule()
+        if current_action == 'on':
+            pass  # set active pattern going
+        if next_event is not None:
+            pass  # set up timer for next event
+
+        # broadcast to websockets
+
+        # wait for signal from timer task or from events being updated
+
+        break  # TODO remove
 
 
 def process_error(pattern_id, error):
@@ -206,7 +188,56 @@ def process_error(pattern_id, error):
         websockets.broadcast(connected_websockets, json.dumps(data))
 
 
-if __name__ == "__main__":
+async def websockets_test():
+    try:
+        i = 0
+        while True:
+            data['patterns']['websocket_test'] = {
+                'name': '_websockets test_',
+                'author': str(i),
+                'script': str(i),
+            }
+            websockets.broadcast(connected_websockets, json.dumps(data))
+            await asyncio.sleep(1)
+            i += 1
+    finally:
+        try:
+            del data['patterns']['websocket_test']
+        except KeyError:
+            pass
+        write_patterns_file()
+
+
+async def main():
     read_patterns_file()
-    calculate_schedule()
+
+    loop = asyncio.get_running_loop()
+
+    led_thread = LEDThread(
+        error_callback=lambda pattern_id, error: loop.call_soon_threadsafe(
+            process_error,
+            pattern_id,
+            error
+        ),
+        led_strip=rpi_ws281x.PixelStrip(40, 18, strip_type=rpi_ws281x.WS2811_STRIP_GRB)
+    )
+
+    async def websocket_wrapper(websocket):
+        await websocket_handler(websocket, led_thread)
+
+    # async with websockets.unix_serve(handler, "/tmp/xmas-lights.ws.sock"):
+    async with websockets.serve(websocket_wrapper, "localhost", 5000):
+        asyncio.create_task(run_schedule())
+        if not args.disable_leds:
+            signal.signal(signal.SIGINT, lambda signum, frame: [led_thread.stop(), sys.exit()])
+            led_thread.start()
+            os.nice(1)  # avoid slowing down the rest of the system
+
+        if args.websocket_test:
+            await websockets_test()
+        else:
+            await asyncio.Future()
+
+
+if __name__ == "__main__":
     asyncio.run(main())
