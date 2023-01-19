@@ -15,9 +15,9 @@ export default class Schedule extends React.Component {
         if(next !== undefined) {
             buttonText = `Turn ${next.action} at ${next.hour}:${next.minute}`
 
-            if((this.props.nowDay + 1) % 7 === next.day) {
+            if(next.day === this.props.tomorrowWeekday) {
                 buttonText += " tomorrow"
-            } else if(this.props.nowDay !== next.day) {
+            } else if(next.day !== this.props.todayWeekday) {
                 buttonText += " on "
                 buttonText += ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][next.day]
             }
@@ -25,7 +25,7 @@ export default class Schedule extends React.Component {
 
         return (
             <div style={{display: "flex"}}>
-                <button id="schedule-button" className={patternSelected ? "" : "schedule-error"}>
+                <button id="schedule-button" className={patternSelected ? "" : "schedule-error"} disabled={true}>
                     <i className="bi bi-alarm" style={{marginRight: "7px", fontSize: "16px"}}/>
                     {buttonText}
                 </button>

@@ -4,10 +4,6 @@ import PatternModal from "./PatternModal"
 import DeleteModal from "./DeleteModal";
 import Schedule from "./Schedule";
 
-function dateSeconds(day, hour, minute, seconds=0) {
-    return (((((day * 24) + hour) * 60) + minute) * 60)
-}
-
 class App extends React.Component {
     patternModal = createRef();
     deleteModal = createRef();
@@ -17,7 +13,7 @@ class App extends React.Component {
         this.state = {
             now: new Date(),
             patterns: new Map(),
-            events: [],
+            schedule: new Map(),
             webSocketConnected: true,
         };
     }
@@ -43,8 +39,8 @@ class App extends React.Component {
                 })
             }
 
-            if(data.hasOwnProperty("events")) {
-                this.setState({events: data.events})
+            if(data.hasOwnProperty("schedule")) {
+                this.setState({schedule: new Map(Object.entries(data.schedule))})
             }
         }
         this.webSocket.onopen = () => {
@@ -132,35 +128,17 @@ class App extends React.Component {
     }
 
     render() {
-        const nowDay = (this.state.now.getUTCDay() - 1) % 7
-        const nowSeconds = dateSeconds(nowDay, this.state.now.getUTCHours(), this.state.now.getUTCMinutes(), this.state.now.getUTCSeconds())
-
-        let events = this.state.events.sort((event1, event2) => {
-            function wrap(event) {
-                let seconds = dateSeconds(event.day, event.hour, event.minute) - nowSeconds
-                if (seconds < 0) {
-                    return seconds + dateSeconds(6, 24, 60, 60);
-                } else {
-                    return seconds
-                }
-            }
-            return wrap(event1) - wrap(event2)
-        })
-
-        let lightsEnabled = true
-        let last = events[events.length - 1]
-        if(last !== undefined) {
-            lightsEnabled = (last.action === "on")
-        }
+        let lightsEnabled = (this.state.schedule.get('status') ?? 'on') === 'on'
 
         return (
           <div>
               <h1 className="main-title">XMAS LIGHTS</h1>
 
               <Schedule
-                  events={events}
-                  nowDay={nowDay}
+                  events={this.state.schedule.get('events') ?? []}
                   lightsEnabled={lightsEnabled}
+                  todayWeekday={this.state.schedule.get('today_weekday')}
+                  tomorrowWeekday={this.state.schedule.get('tomorrow_weekday')}
                   patterns={this.state.patterns} />
               <PatternTable
                   lightsEnabled={lightsEnabled}

@@ -30,7 +30,7 @@ def read_patterns_file():
 
     try:
         with open(PATTERN_FILENAME) as file:
-            data = json.loads(file.read())
+            data = json.load(file)
     except (OSError, ValueError):
         pass
 
@@ -40,7 +40,14 @@ def write_patterns_file():
     global data
 
     with open(PATTERN_FILENAME, 'w') as file:
-        file.write(json.dumps(data))
+        json.dump(data, file, indent=2, default=json_serialise)
+
+
+def json_serialise(_object):
+    if isinstance(_object, datetime.datetime):
+        return _object.isoformat()
+    else:
+        raise TypeError(f'Object of type {_object.__class__.__name__}  is not JSON serializable')
 
 
 def delete_pattern(request, schedule_queue):
@@ -56,7 +63,7 @@ def delete_pattern(request, schedule_queue):
         return "Invalid Pattern ID", 400  # TODO handle error
     else:
         write_patterns_file()
-        websockets.broadcast(connected_websockets, json.dumps(data))
+        websockets.broadcast(connected_websockets, json.dumps(data, default=json_serialise))
 
 
 def update_pattern(request, schedule_queue):
@@ -97,7 +104,7 @@ def update_pattern(request, schedule_queue):
             schedule_queue.put_nowait('pattern update')
 
         write_patterns_file()
-        websockets.broadcast(connected_websockets, json.dumps(data))
+        websockets.broadcast(connected_websockets, json.dumps(data, default=json_serialise))
 
     else:
         return "Incomplete request", 400  # TODO handle error
@@ -106,7 +113,7 @@ def update_pattern(request, schedule_queue):
 async def websocket_handler(websocket, schedule_queue):
     connected_websockets.add(websocket)
     try:
-        await websocket.send(json.dumps(data))
+        await websocket.send(json.dumps(data, default=json_serialise))
         async for message in websocket:
             request = json.loads(message)
             if all(key in request for key in ['action', 'pattern']):
@@ -148,15 +155,14 @@ async def run_schedule(schedule_queue):
     while True:
         now = datetime.datetime.now()
 
-        events = [{
-            'action': event['action'],
-            'next_datetime': datetime.datetime.combine(
+        events = data['schedule']['events']
+
+        for event in events:
+            event['next_datetime'] = datetime.datetime.combine(
                 date=now.date() + datetime.timedelta(days=(event['day'] - now.weekday()) % 7),
                 time=datetime.time(event['hour'], event['minute'])
             )
-        } for event in data['schedule']['events']]
 
-        for event in events:
             if event['next_datetime'] < now:
                 event['next_datetime'] += datetime.timedelta(days=7)
 
@@ -164,9 +170,18 @@ async def run_schedule(schedule_queue):
 
         on = (len(events) < 1) or (events[-1]['action'] == 'on')
 
-        websockets.broadcast(connected_websockets, json.dumps({
-            'schedule': data['schedule'] | {'status': 'on' if on else 'off'}
-        }))
+        tomorrow = datetime.datetime.combine(now.date() + datetime.timedelta(days=1), datetime.time.min)
+
+        data['schedule']['status'] = 'on' if on else 'off'
+        data['schedule']['today_weekday'] = now.weekday()
+        data['schedule']['tomorrow_weekday'] = tomorrow.weekday()
+
+        websockets.broadcast(connected_websockets, json.dumps(
+            {
+                'schedule': data['schedule']
+            },
+            default=json_serialise,
+        ))
 
         while True:
             if on and any(pattern['active'] for pattern in data['patterns'].values()):
@@ -179,9 +194,10 @@ async def run_schedule(schedule_queue):
 
             try:
                 if len(events) > 0:
+                    time_to_wakeup = min(events[0]['next_datetime'], tomorrow)
                     message = await asyncio.wait_for(
                         schedule_queue.get(),
-                        (events[0]['next_datetime'] - datetime.datetime.now()).total_seconds()
+                        (time_to_wakeup - datetime.datetime.now()).total_seconds()
                     )
                 else:
                     message = await schedule_queue.get()
@@ -202,7 +218,7 @@ def process_error(pattern_id, error):
         pass
     else:
         write_patterns_file()
-        websockets.broadcast(connected_websockets, json.dumps(data))
+        websockets.broadcast(connected_websockets, json.dumps(data, default=json_serialise))
 
 
 async def websockets_test():
@@ -215,7 +231,7 @@ async def websockets_test():
                 'author': str(i),
                 'script': str(i),
             }
-            websockets.broadcast(connected_websockets, json.dumps(data))
+            websockets.broadcast(connected_websockets, json.dumps(data, default=json_serialise))
             await asyncio.sleep(1)
             i += 1
     finally:
