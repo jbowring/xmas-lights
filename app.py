@@ -249,8 +249,7 @@ async def main():
     async def websocket_wrapper(websocket):
         await websocket_handler(websocket, schedule_queue)
 
-    # async with websockets.unix_serve(handler, "/tmp/xmas-lights.ws.sock"):
-    async with websockets.serve(websocket_wrapper, "localhost", 5000):
+    async with websockets.unix_serve(websocket_wrapper, "/tmp/xmas-lights.ws.sock"):
         asyncio.create_task(run_schedule(schedule_queue))
 
         if args.websocket_test:
