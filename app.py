@@ -13,15 +13,23 @@ import signal
 import datetime
 from led_thread import LEDThread
 
+unix_socket_path = '/tmp/xmas-lights.ws.sock'
+connected_websockets = set()
+data = {}
+PATTERN_FILENAME = pathlib.Path(__file__).parent / "patterns.json"
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--led-count', action='store', required=True, type=int, help='Number of LEDs')
 parser.add_argument('--disable-leds', action='store_true', help='Disable LED output')
 parser.add_argument('--websocket-test', action='store_true', help='Send websocket updates once per second')
+parser.add_argument(
+    '--port',
+    action='store',
+    type=int,
+    default=None,
+    help=f'Port to host the websocket server on. If not provided, it will be hosted on a UNIX socket at {unix_socket_path}'
+)
 args = parser.parse_args()
-
-connected_websockets = set()
-data = {}
-PATTERN_FILENAME = pathlib.Path(__file__).parent / "patterns.json"
 
 
 def read_patterns_file():
@@ -249,7 +257,14 @@ async def main():
     async def websocket_wrapper(websocket):
         await websocket_handler(websocket, schedule_queue)
 
-    async with websockets.unix_serve(websocket_wrapper, "/tmp/xmas-lights.ws.sock"):
+    if args.port is None:
+        serve_command = websockets.unix_serve
+        serve_args = (websocket_wrapper, unix_socket_path)
+    else:
+        serve_command = websockets.serve
+        serve_args = (websocket_wrapper, 'localhost', args.port)
+
+    async with serve_command(*serve_args):
         asyncio.create_task(run_schedule(schedule_queue))
 
         if args.websocket_test:
