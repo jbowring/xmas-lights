@@ -38,21 +38,24 @@ export default class PatternModal extends React.Component {
     editPatternName = createRef();
     editPatternAuthor = createRef();
     editPatternScript = createRef();
+    form = createRef();
+
+    defaultState = () => {
+        return {
+            contentsModified: false,
+            currentPattern: null,
+            validated: false,
+        }
+    }
 
     constructor(props) {
         super(props);
-        this.state = {
-            contentsModified: false,
-            currentPattern: null,
-        }
+        this.state = this.defaultState();
         loader.init();
     }
 
     close = () => {
-        this.setState({
-            contentsModified: false,
-            currentPattern: null,
-        })
+        this.setState(this.defaultState())
     }
 
     checkContentsModified = () => {
@@ -83,7 +86,7 @@ export default class PatternModal extends React.Component {
                     <h1 className="modal-title fs-5">Edit pattern</h1>
                 </Modal.Header>
                 <Modal.Body>
-                    <form>
+                    <form ref={this.form} className={this.state.validated ? 'was-validated' : ''}>
                         <div className="form-group">
                             <label htmlFor="editPatternName">Pattern name:</label>
                             <input
@@ -92,6 +95,7 @@ export default class PatternModal extends React.Component {
                                 type="text"
                                 defaultValue={show ? this.state.currentPattern.name : ''}
                                 onInput={this.checkContentsModified}
+                                required={true}
                             />
                         </div>
                         <br/>
@@ -103,6 +107,7 @@ export default class PatternModal extends React.Component {
                                 type="text"
                                 defaultValue={show ? this.state.currentPattern.author : ''}
                                 onInput={this.checkContentsModified}
+                                required={true}
                             />
                         </div>
                         <br/>
@@ -147,12 +152,18 @@ export default class PatternModal extends React.Component {
     }
 
     submit = (submitCallback) => {
-        submitCallback({
-            id: this.state.currentPattern.id,
-            name: this.editPatternName.current.value,
-            author: this.editPatternAuthor.current.value,
-            script: this.editPatternScript.current.getValue(),
-            active: this.state.currentPattern.active,
-        })
+        if(this.form.current.checkValidity()) {
+            submitCallback({
+                id: this.state.currentPattern.id,
+                name: this.editPatternName.current.value,
+                author: this.editPatternAuthor.current.value,
+                script: this.editPatternScript.current.getValue(),
+                active: this.state.currentPattern.active,
+            })
+        } else {
+            this.setState({
+                validated: true,
+            })
+        }
     }
 }

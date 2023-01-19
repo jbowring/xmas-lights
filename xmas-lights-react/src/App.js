@@ -89,9 +89,11 @@ class App extends React.Component {
         this.patternModal.current.setState({
             currentPattern: {
                 id: null,
-                name: 'name',
-                author: 'author',
+                name: '',
+                author: '',
                 script: [
+                    '# Example pattern',
+                    '',
                     'result = [[',
                     '	255 * (1 - (((seconds / 0.03) + led_index) % max_leds) / max_leds),',
                     '	100 * (1 - (((seconds / 0.03) + led_index) % max_leds) / max_leds),',
