@@ -3,7 +3,7 @@ Description=Xmas Lights Service
 After=network-online.target multi-user.target
 
 [Service]
-ExecStart=/home/pi/xmas-lights/app.py --led-count 40
+ExecStart=/home/pi/xmas-lights/backend/app.py --led-count 40
 
 [Install]
 WantedBy=multi-user.target

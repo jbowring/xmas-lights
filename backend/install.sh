@@ -5,9 +5,9 @@ dir=$(dirname "$0")
 
 apt update &&
 apt install python3-pip -y &&
-pip3 install -r "$dir/requirements.txt" &&
+pip3 install -r "$dir/backend/requirements.txt" &&
 cp "$dir/$name.service" /lib/systemd/system/ &&
 systemctl daemon-reload &&
 systemctl enable "$name" &&
-chmod +x "$dir/app.py" &&
+chmod +x "$dir/backend/app.py" &&
 service "$name" start
