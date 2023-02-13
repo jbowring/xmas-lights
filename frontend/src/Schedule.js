@@ -13,7 +13,7 @@ export default class Schedule extends React.Component {
         let buttonText = 'No schedule'
 
         if(next !== undefined) {
-            buttonText = `Turn ${next.action} at ${next.hour}:${next.minute}`
+            buttonText = `Turn ${next.action} at ${next.hour}:${String(next.minute).padStart(2, '0')}`
 
             if(next.day === this.props.tomorrowWeekday) {
                 buttonText += " tomorrow"
