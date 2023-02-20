@@ -1,6 +1,43 @@
 import React, {createRef} from "react";
 import {Overlay, Popover} from "react-bootstrap";
 
+class Select extends React.Component {
+    render() {
+        let output = []
+
+        for(let i=0; i <= this.props.max; i++) {
+            output.push(<option key={i} value={i}>
+                {String(i).padStart(2, '0')}
+            </option>)
+        }
+
+        return (
+            <select
+                className="form-select form-select-sm"
+                style={{maxWidth: "max-content", marginLeft: "5px", minWidth: "max-content"}}
+                value={this.props.selected}
+            >
+                {output}
+            </select>
+        )
+    }
+}
+
+class TimePicker extends React.Component {
+    render() {
+        return (
+            <>
+                <div style={{alignSelf: "center", justifySelf: "end"}}>
+                    {this.props.title}
+                </div>
+                <div style={{display: "flex", justifyContent: "flex-start"}}>
+                    <Select max={23} selected={this.props.event.hour} />
+                    <Select max={59} selected={this.props.event.minute} />
+                </div>
+            </>
+        )
+    }
+}
 
 export default class Schedule extends React.Component {
     target = createRef();
@@ -59,9 +96,15 @@ export default class Schedule extends React.Component {
                 <Overlay target={this.target.current} show={this.state.showSchedule} placement="bottom">
                     <Popover style={{background: "aliceblue"}}>
                         <Popover.Body>
-                            {dayButtons}
-                            Turn on: {String(onEvent.hour).padStart(2, '0')}:{String(onEvent.minute).padStart(2, '0')}&nbsp;
-                            Turn off: {String(offEvent.hour).padStart(2, '0')}:{String(offEvent.minute).padStart(2, '0')}
+                            <div>
+                                {dayButtons}
+                            </div>
+                            <div style={{textAlign: "center"}}>
+                            <div className={"schedule-container"}>
+                                <TimePicker title={"Turn on"} event={onEvent} />
+                                <TimePicker title={"Turn off"} event={offEvent} />
+                            </div>
+                            </div>
                         </Popover.Body>
                     </Popover>
                 </Overlay>
