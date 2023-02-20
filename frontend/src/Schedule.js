@@ -1,7 +1,17 @@
-import React from "react";
+import React, {createRef} from "react";
+import {Overlay, Popover} from "react-bootstrap";
 
 
 export default class Schedule extends React.Component {
+    target = createRef();
+
+    constructor(props) {
+        super(props);
+        this.state = {
+            showSchedule: true, // TODO change
+        }
+    }
+
     render() {
         const patternSelected = Array.from(this.props.patterns.values()).some(pattern => pattern.hasOwnProperty('active') && pattern.active)
 
@@ -23,12 +33,38 @@ export default class Schedule extends React.Component {
             }
         }
 
+        const days = ["M", "T", "W", "T", "F", "S", "S"];
+        const scheduleDays = [...new Set(this.props.events.map(event => event.day))]
+
+        const dayButtons = days.map((day, index) => (
+            <button key={index} className={"dayButton" + (scheduleDays.includes(index) ? " dayButtonActive" : "")}>
+                {days[index]}
+            </button>
+        ))
+
+        const onEvent = this.props.events.find(event => event.action === "on") ?? {hour: 0, minute: 0}
+        const offEvent = this.props.events.find(event => event.action === "off") ?? {hour: 0, minute: 0}
+
         return (
             <div style={{display: "flex"}}>
-                <button id="schedule-button" className={patternSelected ? "" : "schedule-error"} disabled={true}>
+                <button
+                    ref={this.target}
+                    id="schedule-button"
+                    className={patternSelected ? "" : "schedule-error"}
+                    onClick={() => this.setState({showSchedule: !this.state.showSchedule})}
+                >
                     <i className="bi bi-alarm" style={{marginRight: "7px", fontSize: "16px"}}/>
                     {buttonText}
                 </button>
+                <Overlay target={this.target.current} show={this.state.showSchedule} placement="bottom">
+                    <Popover style={{background: "aliceblue"}}>
+                        <Popover.Body>
+                            {dayButtons}
+                            Turn on: {String(onEvent.hour).padStart(2, '0')}:{String(onEvent.minute).padStart(2, '0')}&nbsp;
+                            Turn off: {String(offEvent.hour).padStart(2, '0')}:{String(offEvent.minute).padStart(2, '0')}
+                        </Popover.Body>
+                    </Popover>
+                </Overlay>
             </div>
         )
     }

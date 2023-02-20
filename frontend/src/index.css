@@ -45,6 +45,26 @@ summary {
   margin-right: auto;
 }
 
+.dayButton {
+  background-color: white;
+  border-radius: 100vh;
+  border-style: solid;
+  border-width: 1px;
+  width: 26px;
+  height: 26px;
+  font-size: smaller;
+  padding: 0;
+  margin-left: 3px;
+  margin-right: 3px;
+  color: grey;
+  border-color: grey;
+}
+
+.dayButtonActive {
+  color: dodgerblue;
+  border-color: dodgerblue;
+}
+
 .errorButton {
   visibility: hidden;
 }
