@@ -1,5 +1,5 @@
 import React, {createRef} from "react";
-import {Overlay, Popover} from "react-bootstrap";
+import {OverlayTrigger, Popover} from "react-bootstrap";
 
 class Select extends React.Component {
     render() {
@@ -107,40 +107,43 @@ export default class Schedule extends React.Component {
         const onEvent = events.find(event => event.action === "on") ?? {hour: 0, minute: 0}
         const offEvent = events.find(event => event.action === "off") ?? {hour: 0, minute: 0}
 
+        const popover = (
+            <Popover style={{background: "aliceblue"}}>
+                <Popover.Body>
+                    <div>
+                        {dayButtons}
+                    </div>
+                    <div style={{textAlign: "center"}}>
+                        <div className={"schedule-container"}>
+                            <TimePicker
+                                title={"Turn on"}
+                                event={onEvent}
+                                onChange={time => this.props.onScheduleChange({type: 'time', value: time})}
+                            />
+                            <TimePicker
+                                title={"Turn off"}
+                                event={offEvent}
+                                onChange={time => this.props.onScheduleChange({type: 'time', value: time})}
+                            />
+                        </div>
+                    </div>
+                </Popover.Body>
+            </Popover>
+        )
+
         return (
             <div style={{display: "flex"}}>
-                <button
-                    ref={this.overlayTargetRef}
-                    id="schedule-button"
-                    className={patternSelected ? "" : "schedule-error"}
-                    onClick={() => this.setState({showSchedule: !this.state.showSchedule})}
-                >
-                    <i className="bi bi-alarm" style={{marginRight: "7px", fontSize: "16px"}}/>
-                    {buttonText}
-                </button>
-                <Overlay target={this.overlayTargetRef.current} show={this.state.showSchedule} placement="bottom">
-                    <Popover style={{background: "aliceblue"}}>
-                        <Popover.Body>
-                            <div>
-                                {dayButtons}
-                            </div>
-                            <div style={{textAlign: "center"}}>
-                            <div className={"schedule-container"}>
-                                <TimePicker
-                                    title={"Turn on"}
-                                    event={onEvent}
-                                    onChange={time => this.props.onScheduleChange({type: 'time', value: time})}
-                                />
-                                <TimePicker
-                                    title={"Turn off"}
-                                    event={offEvent}
-                                    onChange={time => this.props.onScheduleChange({type: 'time', value: time})}
-                                />
-                            </div>
-                            </div>
-                        </Popover.Body>
-                    </Popover>
-                </Overlay>
+                <OverlayTrigger trigger="click" rootClose overlay={popover} placement="bottom">
+                    <button
+                        ref={this.overlayTargetRef}
+                        id="schedule-button"
+                        className={patternSelected ? "" : "schedule-error"}
+                        onClick={() => this.setState({showSchedule: !this.state.showSchedule})}
+                    >
+                        <i className="bi bi-alarm" style={{marginRight: "7px", fontSize: "16px"}}/>
+                        {buttonText}
+                    </button>
+                </OverlayTrigger>
             </div>
         )
     }
