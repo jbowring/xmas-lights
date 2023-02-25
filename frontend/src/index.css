@@ -59,15 +59,16 @@ summary {
   background-color: white;
   border-radius: 100vh;
   border-style: solid;
-  border-width: 1px;
+  border-width: 1.5px;
   width: 26px;
   height: 26px;
   font-size: smaller;
+  font-weight: 500;
   padding: 0;
   margin-left: 3px;
   margin-right: 3px;
-  color: grey;
-  border-color: grey;
+  color: darkgrey;
+  border-color: darkgrey;
 }
 
 .dayButtonActive {
