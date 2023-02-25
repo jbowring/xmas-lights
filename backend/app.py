@@ -124,13 +124,17 @@ async def websocket_handler(websocket, schedule_queue):
         await websocket.send(json.dumps(data, default=json_serialise))
         async for message in websocket:
             request = json.loads(message)
-            if all(key in request for key in ['action', 'pattern']):
-                if request['action'] == 'create':
-                    update_pattern(request['pattern'], schedule_queue)
-                elif request['action'] == 'update':
-                    update_pattern(request['pattern'], schedule_queue)
-                elif request['action'] == 'delete':
-                    delete_pattern(request['pattern'], schedule_queue)
+            if all(key in request for key in ['action', 'payload']):
+                if request['action'] == 'create_pattern':
+                    update_pattern(request['payload'], schedule_queue)
+                elif request['action'] == 'update_pattern':
+                    update_pattern(request['payload'], schedule_queue)
+                elif request['action'] == 'delete_pattern':
+                    delete_pattern(request['payload'], schedule_queue)
+                elif request['action'] == 'update_schedule':
+                    if 'events' in request['payload']:
+                        data['schedule']['events'] = request['payload']['events']
+                        schedule_queue.put_nowait('schedule update')
     except websockets.ConnectionClosedError:
         pass
     finally:

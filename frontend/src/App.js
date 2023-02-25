@@ -4,7 +4,7 @@ import PatternModal from "./PatternModal"
 import DeleteModal from "./DeleteModal";
 import Schedule from "./Schedule";
 
-class App extends React.Component {
+export default class App extends React.Component {
     patternModal = createRef();
     deleteModal = createRef();
 
@@ -40,7 +40,9 @@ class App extends React.Component {
             }
 
             if(data.hasOwnProperty("schedule")) {
-                this.setState({schedule: new Map(Object.entries(data.schedule))})
+                this.setState({
+                    schedule: new Map(Object.entries(data.schedule)),
+                })
             }
         }
         this.webSocket.onopen = () => {
@@ -69,6 +71,53 @@ class App extends React.Component {
         clearInterval(this.timer)
     }
 
+    onScheduleChange = (scheduleChange) => {
+        let schedule = this.state.schedule ?? new Map()
+        let events = schedule.get('events') ?? []
+        let days = new Set(events.map(event => event.day))
+
+        if(scheduleChange.type === 'button' && !days.delete(scheduleChange.value)) {
+            days.add(scheduleChange.value)
+        }
+
+        const newEvents = ["on", "off"].map(action => {
+            let hour = 0
+            let minute = 0
+
+            if(scheduleChange.type === "time" && scheduleChange.value.action === action) {
+                hour = parseInt(scheduleChange.value.hour)
+                minute = parseInt(scheduleChange.value.minute)
+            } else {
+                let existingEvent = events.find(event => event.action === action)
+                if(existingEvent !== undefined) {
+                    hour = existingEvent.hour
+                    minute = existingEvent.minute
+                }
+            }
+
+            return [...days].map(day => {
+                return {
+                    day: day,
+                    hour: hour,
+                    minute: minute,
+                    action: action,
+                }
+            })
+        }).flat()
+
+        let newSchedule = new Map(this.state.schedule)
+        newSchedule.set("events", newEvents)
+
+        this.webSocket.send(JSON.stringify({
+            action: 'update_schedule',
+            payload: Object.fromEntries(newSchedule),
+        }))
+
+        this.setState({
+            schedule: newSchedule,
+        })
+    }
+
     editPattern = (patternId) => {
         this.patternModal.current.setState({
             currentPattern: this.state.patterns.get(patternId),
@@ -77,8 +126,8 @@ class App extends React.Component {
 
     deletePattern = (patternId) => {
         this.webSocket.send(JSON.stringify({
-            action: 'delete',
-            pattern: {
+            action: 'delete_pattern',
+            payload: {
                 id: patternId,
             },
         }))
@@ -107,16 +156,16 @@ class App extends React.Component {
 
     sendPattern = (pattern) => {
         this.webSocket.send(JSON.stringify({
-            action: 'update',
-            pattern: pattern,
+            action: 'update_pattern',
+            payload: pattern,
         }))
         this.patternModal.current.close()
     }
 
     setPatternActiveCallback = (patternId, active) => {
         this.webSocket.send(JSON.stringify({
-            action: 'update',
-            pattern: {
+            action: 'update_pattern',
+            payload: {
                 id: patternId,
                 active: active,
             },
@@ -130,18 +179,18 @@ class App extends React.Component {
     }
 
     render() {
-        let lightsEnabled = (this.state.schedule.get('status') ?? 'on') === 'on'
+        const lightsEnabled = (this.state.schedule.get('status') ?? 'on') === 'on'
 
         return (
           <div>
               <h1 className="main-title">XMAS LIGHTS</h1>
 
               <Schedule
-                  events={this.state.schedule.get('events') ?? []}
+                  patterns={this.state.patterns}
+                  schedule={this.state.schedule}
                   lightsEnabled={lightsEnabled}
-                  todayWeekday={this.state.schedule.get('today_weekday')}
-                  tomorrowWeekday={this.state.schedule.get('tomorrow_weekday')}
-                  patterns={this.state.patterns} />
+                  onScheduleChange={this.onScheduleChange}
+              />
               <PatternTable
                   lightsEnabled={lightsEnabled}
                   patterns={this.state.patterns}
@@ -169,5 +218,3 @@ class App extends React.Component {
         );
     }
 }
-
-export default App;

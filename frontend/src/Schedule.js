@@ -16,6 +16,8 @@ class Select extends React.Component {
                 className="form-select form-select-sm"
                 style={{maxWidth: "max-content", marginLeft: "5px", minWidth: "max-content"}}
                 value={this.props.selected}
+                onChange={event => this.props.onChange(event.target.value)}
+                ref={this.props.selectRef}
             >
                 {output}
             </select>
@@ -24,6 +26,9 @@ class Select extends React.Component {
 }
 
 class TimePicker extends React.Component {
+    hourRef = createRef();
+    minuteRef = createRef();
+
     render() {
         return (
             <>
@@ -31,8 +36,26 @@ class TimePicker extends React.Component {
                     {this.props.title}
                 </div>
                 <div style={{display: "flex", justifyContent: "flex-start"}}>
-                    <Select max={23} selected={this.props.event.hour} />
-                    <Select max={59} selected={this.props.event.minute} />
+                    <Select
+                        max={23}
+                        selectRef={this.hourRef}
+                        onChange={hour => this.props.onChange({
+                            hour: hour,
+                            minute: this.minuteRef.current.value,
+                            action: this.props.event.action,
+                        })}
+                        selected={this.props.event.hour}
+                    />
+                    <Select
+                        max={59}
+                        selectRef={this.minuteRef}
+                        onChange={minute => this.props.onChange({
+                            hour: this.hourRef.current.value,
+                            minute: minute,
+                            action: this.props.event.action,
+                        })}
+                        selected={this.props.event.minute}
+                    />
                 </div>
             </>
         )
@@ -40,21 +63,20 @@ class TimePicker extends React.Component {
 }
 
 export default class Schedule extends React.Component {
-    target = createRef();
-
-    constructor(props) {
-        super(props);
-        this.state = {
-            showSchedule: true, // TODO change
-        }
-    }
+    state = { showSchedule: false}
+    days = ["M", "T", "W", "T", "F", "S", "S"]
+    overlayTargetRef = createRef();
 
     render() {
+        const events = this.props.schedule.get('events') ?? []
+        const lightsEnabled = this.props.lightsEnabled
+        const todayWeekday = this.props.schedule.get('today_weekday')
+        const tomorrowWeekday = this.props.schedule.get('tomorrow_weekday')
         const patternSelected = Array.from(this.props.patterns.values()).some(pattern => pattern.hasOwnProperty('active') && pattern.active)
 
-        let next = this.props.events.find(pattern => pattern.action === (this.props.lightsEnabled && patternSelected ? "off" : "on"))
+        let next = events.find(pattern => pattern.action === (lightsEnabled && patternSelected ? "off" : "on"))
         if(next === undefined) {
-            next = this.props.events[0]
+            next = events[0]
         }
 
         let buttonText = 'No schedule'
@@ -62,30 +84,33 @@ export default class Schedule extends React.Component {
         if(next !== undefined) {
             buttonText = `Turn ${next.action} at ${next.hour}:${String(next.minute).padStart(2, '0')}`
 
-            if(next.day === this.props.tomorrowWeekday) {
+            if(next.day === tomorrowWeekday) {
                 buttonText += " tomorrow"
-            } else if(next.day !== this.props.todayWeekday) {
+            } else if(next.day !== todayWeekday) {
                 buttonText += " on "
                 buttonText += ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][next.day]
             }
         }
 
-        const days = ["M", "T", "W", "T", "F", "S", "S"];
-        const scheduleDays = [...new Set(this.props.events.map(event => event.day))]
+        const scheduleDays = [...new Set(events.map(event => event.day))]
 
-        const dayButtons = days.map((day, index) => (
-            <button key={index} className={"dayButton" + (scheduleDays.includes(index) ? " dayButtonActive" : "")}>
-                {days[index]}
+        const dayButtons = this.days.map((day, index) => (
+            <button
+                key={index}
+                className={"dayButton" + (scheduleDays.includes(index) ? " dayButtonActive" : "")}
+                onClick={() => this.props.onScheduleChange({type: 'button', value: index})}
+            >
+                {day}
             </button>
         ))
 
-        const onEvent = this.props.events.find(event => event.action === "on") ?? {hour: 0, minute: 0}
-        const offEvent = this.props.events.find(event => event.action === "off") ?? {hour: 0, minute: 0}
+        const onEvent = events.find(event => event.action === "on") ?? {hour: 0, minute: 0}
+        const offEvent = events.find(event => event.action === "off") ?? {hour: 0, minute: 0}
 
         return (
             <div style={{display: "flex"}}>
                 <button
-                    ref={this.target}
+                    ref={this.overlayTargetRef}
                     id="schedule-button"
                     className={patternSelected ? "" : "schedule-error"}
                     onClick={() => this.setState({showSchedule: !this.state.showSchedule})}
@@ -93,7 +118,7 @@ export default class Schedule extends React.Component {
                     <i className="bi bi-alarm" style={{marginRight: "7px", fontSize: "16px"}}/>
                     {buttonText}
                 </button>
-                <Overlay target={this.target.current} show={this.state.showSchedule} placement="bottom">
+                <Overlay target={this.overlayTargetRef.current} show={this.state.showSchedule} placement="bottom">
                     <Popover style={{background: "aliceblue"}}>
                         <Popover.Body>
                             <div>
@@ -101,8 +126,16 @@ export default class Schedule extends React.Component {
                             </div>
                             <div style={{textAlign: "center"}}>
                             <div className={"schedule-container"}>
-                                <TimePicker title={"Turn on"} event={onEvent} />
-                                <TimePicker title={"Turn off"} event={offEvent} />
+                                <TimePicker
+                                    title={"Turn on"}
+                                    event={onEvent}
+                                    onChange={time => this.props.onScheduleChange({type: 'time', value: time})}
+                                />
+                                <TimePicker
+                                    title={"Turn off"}
+                                    event={offEvent}
+                                    onChange={time => this.props.onScheduleChange({type: 'time', value: time})}
+                                />
                             </div>
                             </div>
                         </Popover.Body>
