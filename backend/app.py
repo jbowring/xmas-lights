@@ -16,7 +16,11 @@ from led_thread import LEDThread
 unix_socket_path = '/tmp/xmas-lights.ws.sock'
 connected_websockets = set()
 data = {}
-PATTERN_FILENAME = pathlib.Path(__file__).parent / "patterns.json"
+
+PATTERN_DIRECTORY = pathlib.Path("/var/lib/xmaslights")
+PATTERN_DIRECTORY.mkdir(parents=True, exist_ok=True)
+
+PATTERN_FILENAME = PATTERN_DIRECTORY / "patterns.json"
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--led-count', action='store', required=True, type=int, help='Number of LEDs')
