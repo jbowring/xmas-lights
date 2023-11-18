@@ -17,13 +17,16 @@ unix_socket_path = '/tmp/xmas-lights.ws.sock'
 connected_websockets = set()
 data = {}
 
-PATTERN_DIRECTORY = pathlib.Path("/var/lib/xmaslights")
-PATTERN_DIRECTORY.mkdir(parents=True, exist_ok=True)
-
-PATTERN_FILENAME = PATTERN_DIRECTORY / "patterns.json"
+DEFAULT_PATTERNS_FILE = '/var/lib/xmas-lights/patterns.json'
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--led-count', action='store', required=True, type=int, help='Number of LEDs')
+parser.add_argument(
+    '--patterns-file',
+    action='store',
+    default=DEFAULT_PATTERNS_FILE,
+    help=f'Path to patterns JSON file (default: {DEFAULT_PATTERNS_FILE}'
+)
 parser.add_argument('--disable-leds', action='store_true', help='Disable LED output')
 parser.add_argument('--websocket-test', action='store_true', help='Send websocket updates once per second')
 parser.add_argument(
@@ -35,23 +38,25 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
+pathlib.Path(args.patterns_file).parent.mkdir(parents=True, exist_ok=True)
+
 
 def read_patterns_file():
-    global PATTERN_FILENAME
+    global args
     global data
 
     try:
-        with open(PATTERN_FILENAME) as file:
+        with open(args.patterns_file) as file:
             data = json.load(file)
     except (OSError, ValueError):
         pass
 
 
 def write_patterns_file():
-    global PATTERN_FILENAME
+    global args
     global data
 
-    with open(PATTERN_FILENAME, 'w') as file:
+    with open(args.patterns_file, 'w') as file:
         json.dump(data, file, indent=2, default=json_serialise)
 
 
@@ -64,7 +69,6 @@ def json_serialise(_object):
 
 def delete_pattern(request, schedule_queue):
     global data
-    global PATTERN_FILENAME
 
     try:
         pattern_id = request['id']
@@ -80,7 +84,6 @@ def delete_pattern(request, schedule_queue):
 
 def update_pattern(request, schedule_queue):
     global data
-    global PATTERN_FILENAME
 
     json_keys = {
         'active': bool,
