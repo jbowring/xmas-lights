@@ -42,4 +42,4 @@ jobs:
     - name: Copy artifacts
       run: docker run --mount type=bind,source=${{ github.workspace }}/artifact,target=/data 'image' "rsync" "--recursive" "--progress" "--executability" "--delete-before" "/data/" "server:/home/pi/xmas-lights/"
     - name: Restart services
-      run: docker run 'image' "ssh" "server" "chmod +x /home/pi/xmas-lights/backend/install.sh && /home/pi/xmas-lights/backend/install.sh && service nginx reload"
+      run: docker run 'image' "ssh" "server" "chmod +x /home/pi/xmas-lights/backend/install.sh && /home/pi/xmas-lights/backend/install.sh"

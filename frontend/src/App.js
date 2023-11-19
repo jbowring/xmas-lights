@@ -56,7 +56,7 @@ export default class App extends React.Component {
         if(process.env.NODE_ENV === "development") {
             this.beginWebSocket("ws://127.0.0.1:5000/ws")
         } else {
-            this.beginWebSocket((window.location.protocol === "https:" ? "wss://" : "ws://") + window.location.host + "/ws");
+            this.beginWebSocket((window.location.protocol === "https:" ? "wss://" : "ws://") + "ws." + window.location.host);
         }
         this.setState({now: new Date()})
 
