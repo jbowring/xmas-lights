@@ -163,7 +163,7 @@ async def run_schedule(schedule_queue):
             pattern_id,
             error
         ),
-        led_strip=rpi_ws281x.PixelStrip(args.led_count, 18, strip_type=rpi_ws281x.WS2811_STRIP_GRB)
+        led_strip=rpi_ws281x.PixelStrip(args.led_count, 18, strip_type=rpi_ws281x.WS2811_STRIP_RGB)
     )
 
     if not args.disable_leds:
