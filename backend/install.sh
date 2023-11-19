@@ -5,9 +5,9 @@ set -e
 name="xmaslights"
 dir=$(dirname "$0")
 
-if service "$name" status
+if systemctl is-active --quiet "$name"
 then
-  service "$name" stop
+  systemctl stop "$name"
 fi
 
 apt update
@@ -17,4 +17,4 @@ cp "$dir/$name.service" /lib/systemd/system/
 systemctl daemon-reload
 systemctl enable "$name"
 chmod +x "$dir/app.py"
-service "$name" start
+systemctl start "$name"
