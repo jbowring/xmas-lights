@@ -169,7 +169,6 @@ async def run_schedule(schedule_queue):
     if not args.disable_leds:
         signal.signal(signal.SIGINT, lambda signum, frame: [led_thread.stop(), sys.exit()])
         led_thread.start()
-        os.nice(1)  # avoid slowing down the rest of the system
 
     while True:
         now = datetime.datetime.now()
