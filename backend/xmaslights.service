@@ -1,6 +1,6 @@
 [Unit]
 Description=Xmas Lights Service
-After=network-online.target multi-user.target
+After=time-sync.service
 
 [Service]
 ExecStart=/home/pi/xmas-lights/backend/app.py --led-count 40
