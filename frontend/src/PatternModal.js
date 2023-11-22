@@ -69,7 +69,7 @@ export default class PatternModal extends React.Component {
         }
     }
 
-    handleEditorDidMount = (editor, monaco) => {
+    handleEditorDidMount = editor => {
         this.editPatternScript.current = editor;
     }
 
@@ -123,6 +123,9 @@ export default class PatternModal extends React.Component {
                                         minimap: {enabled: false},
                                         automaticLayout: true,
                                         lineNumbersMinChars: 3,
+                                        renderWhitespace: "selection",
+                                        detectIndentation: false,
+                                        insertSpaces: true,
                                     }}
                                     onMount={this.handleEditorDidMount}
                                     onChange={this.checkContentsModified}
@@ -157,8 +160,10 @@ export default class PatternModal extends React.Component {
                 id: this.state.currentPattern.id,
                 name: this.editPatternName.current.value,
                 author: this.editPatternAuthor.current.value,
-                script: this.editPatternScript.current.getValue(),
                 active: this.state.currentPattern.active,
+                script: this.editPatternScript.current.getValue().split(/^/m).map(line =>
+                    this.editPatternScript.current.getModel().normalizeIndentation(line)
+                ).join(''),
             })
         } else {
             this.setState({
