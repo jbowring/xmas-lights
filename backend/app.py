@@ -8,7 +8,6 @@ import rpi_ws281x
 import websockets
 import asyncio
 import argparse
-import os
 import signal
 import datetime
 from led_thread import LEDThread
@@ -142,6 +141,7 @@ async def websocket_handler(websocket, schedule_queue):
                     if 'events' in request['payload']:
                         data['schedule']['events'] = request['payload']['events']
                         schedule_queue.put_nowait('schedule update')
+                        write_patterns_file()
     except websockets.ConnectionClosedError:
         pass
     finally:
