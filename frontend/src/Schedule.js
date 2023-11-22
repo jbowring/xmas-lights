@@ -2,10 +2,14 @@ import React, {createRef} from "react";
 import {OverlayTrigger, Popover} from "react-bootstrap";
 
 class Select extends React.Component {
+    static defaultProps = {
+        step: 1
+    };
+
     render() {
         let output = []
 
-        for(let i=0; i <= this.props.max; i++) {
+        for(let i=0; i <= this.props.max; i += this.props.step) {
             output.push(<option key={i} value={i}>
                 {String(i).padStart(2, '0')}
             </option>)
@@ -47,7 +51,8 @@ class TimePicker extends React.Component {
                         selected={this.props.event.hour}
                     />
                     <Select
-                        max={59}
+                        max={55}
+                        step={5}
                         selectRef={this.minuteRef}
                         onChange={minute => this.props.onChange({
                             hour: this.hourRef.current.value,
