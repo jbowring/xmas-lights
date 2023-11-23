@@ -114,14 +114,21 @@ def update_pattern(request, schedule_queue):
     if pattern_id in patterns or all(key_valid(request, key, key_type) for key, key_type in json_keys.items()):
         if pattern_id not in patterns:
             patterns[pattern_id] = {}
-        update = patterns[pattern_id].get('active', False) or request.get('active', False)
+        pattern = patterns[pattern_id]
+
+        update = pattern.get('active', False) or request.get('active', False)
         for key, key_type in json_keys.items():
             if key_valid(request, key, key_type):
-                if key == 'active' and request[key] is True:
-                    patterns[pattern_id]['error'] = None
-                    for pattern in patterns.values():
-                        pattern['active'] = False
-                patterns[pattern_id][key] = request[key]
+                pattern_active = key == 'active' and request[key] is True
+                pattern_script_changed = key == 'script' and request[key] != pattern.get(key)
+
+                if pattern_active or pattern_script_changed:
+                    pattern['error'] = None
+
+                if pattern_active:
+                    for other_pattern in patterns.values():
+                        other_pattern['active'] = False
+                pattern[key] = request[key]
 
         if update:
             schedule_queue.put_nowait('pattern update')

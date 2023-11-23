@@ -69,8 +69,23 @@ export default class PatternModal extends React.Component {
         }
     }
 
-    handleEditorDidMount = editor => {
+    handleEditorDidMount = (editor, monaco) => {
         this.editPatternScript.current = editor;
+        if(
+            this.state.currentPattern.error &&
+            this.state.currentPattern.error.mark_message &&
+            Number.isInteger(this.state.currentPattern.error.line_number)
+        ) {
+            monaco.editor.removeAllMarkers("owner");
+            monaco.editor.setModelMarkers(editor.getModel(), "owner", [{
+                message: this.state.currentPattern.error.mark_message,
+                severity: monaco.MarkerSeverity.Error,
+                startLineNumber: this.state.currentPattern.error.line_number,
+                endLineNumber: this.state.currentPattern.error.line_number,
+                startColumn: 1,
+                endColumn: editor.getModel().getLineLength(this.state.currentPattern.error.line_number) + 1,
+            }])
+        }
     }
 
     render() {
