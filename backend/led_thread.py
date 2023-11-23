@@ -12,7 +12,7 @@ class LEDThread(threading.Thread):
     def __init__(
             self,
             *,
-            error_callback: typing.Callable[[typing.Any, typing.Any], typing.Any],
+            error_callback: typing.Callable[[typing.Any, str, int, str], typing.NoReturn],
             led_strip: rpi_ws281x.PixelStrip
     ):
         super().__init__()
@@ -144,13 +144,23 @@ class LEDThread(threading.Thread):
                             rpi_ws281x.Color(*(int(global_scope['result'][led_index][i]) for i in range(3)))
                         )
                     self.__led_strip.show()
-            except Exception:
+            except BaseException as exception:
                 self.__turn_off()
                 if current_pattern is not None:
-                    # TODO: Get error line and highlight in GUI
+                    traceback_exception = traceback.TracebackException.from_exception(exception)
+                    exception_format = list(traceback_exception.format_exception_only())
+
+                    if hasattr(traceback_exception, 'lineno'):
+                        line_number = int(traceback_exception.lineno)
+                        exception_format = exception_format[1:]
+                    else:
+                        line_number = int(traceback_exception.stack[-1].lineno)
+
                     self.__error_callback(
                         current_pattern['id'],
-                        traceback.format_exc(limit=3).split('\n', 3)[3]
+                        exception_format[-1].rstrip(),
+                        line_number,
+                        ''.join(exception_format).rstrip(),
                     )
                     current_pattern = None
 

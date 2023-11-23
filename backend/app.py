@@ -47,6 +47,15 @@ def read_patterns_file():
     try:
         with open(args.patterns_file) as file:
             data = json.load(file)
+
+            if 'patterns' in data:
+                for pattern in data['patterns'].values():
+                    if 'error' in pattern and type(pattern['error']) is str:
+                        pattern['error'] = {
+                            'home_popover': pattern['error'],
+                        }
+            else:
+                data['patterns'] = {}
     except (OSError, ValueError):
         pass
 
@@ -158,10 +167,12 @@ async def run_schedule(schedule_queue):
 
     loop = asyncio.get_running_loop()
     led_thread = LEDThread(
-        error_callback=lambda pattern_id, error: loop.call_soon_threadsafe(
+        error_callback=lambda pattern_id, home_popover, line_number, mark_message: loop.call_soon_threadsafe(
             process_error,
             pattern_id,
-            error
+            home_popover,
+            line_number,
+            mark_message,
         ),
         led_strip=rpi_ws281x.PixelStrip(args.led_count, 18, strip_type=rpi_ws281x.WS2811_STRIP_RGB)
     )
@@ -226,10 +237,14 @@ async def run_schedule(schedule_queue):
                 break
 
 
-def process_error(pattern_id, error):
+def process_error(pattern_id, home_popover, line_number, mark_message):
     try:
         data['patterns'][pattern_id] |= {
-            'error': error,
+            'error': {
+                'home_popover': home_popover,
+                'line_number': line_number,
+                'mark_message': mark_message,
+            },
             'active': False,
         }
     except KeyError:
