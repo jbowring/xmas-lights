@@ -138,11 +138,19 @@ class LEDThread(threading.Thread):
                     self.__turn_off()
                 else:
                     exec(script, global_scope)
-                    for led_index in range(self.__led_strip.numPixels()):
-                        self.__led_strip.setPixelColor(
-                            led_index,
-                            rpi_ws281x.Color(*(int(global_scope['result'][led_index][i]) for i in range(3)))
-                        )
+                    if len(global_scope['result']) > self.__led_strip.size:
+                        pass  # TODO raise exception
+
+                    for led_index, led in enumerate(global_scope['result']):
+                        led = tuple(int(colour) for colour in led)
+
+                        if len(led) != 3:
+                            pass  # TODO raise exception
+
+                        if any(0 > colour > 255 for colour in led):
+                            pass  # TODO raise exception
+
+                        self.__led_strip[led_index] = (led[0] << 16) | (led[1] << 8) | led[2]
                     self.__led_strip.show()
             except BaseException as exception:
                 self.__turn_off()
