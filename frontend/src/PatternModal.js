@@ -76,14 +76,15 @@ export default class PatternModal extends React.Component {
             this.state.currentPattern.error.mark_message &&
             Number.isInteger(this.state.currentPattern.error.line_number)
         ) {
+            const line_number = Math.min(this.state.currentPattern.error.line_number, editor.getModel().getLineCount())
             monaco.editor.removeAllMarkers("owner");
             monaco.editor.setModelMarkers(editor.getModel(), "owner", [{
                 message: this.state.currentPattern.error.mark_message,
                 severity: monaco.MarkerSeverity.Error,
-                startLineNumber: this.state.currentPattern.error.line_number,
-                endLineNumber: this.state.currentPattern.error.line_number,
+                startLineNumber: line_number,
+                endLineNumber: line_number,
                 startColumn: 1,
-                endColumn: editor.getModel().getLineLength(this.state.currentPattern.error.line_number) + 1,
+                endColumn: editor.getModel().getLineLength(line_number) + 1,
             }])
         }
     }
