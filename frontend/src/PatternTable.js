@@ -2,18 +2,16 @@ import React from "react";
 import {OverlayTrigger, Tooltip} from "react-bootstrap";
 
 function ErrorSymbol(props) {
-    const popover = props.pattern.hasOwnProperty('error') && props.pattern.error !== null && props.pattern.error.hasOwnProperty('home_popover') && props.pattern.error.home_popover !== null;
+    const isError = props.pattern.error;
+    let overlay = <></>;
+
+    if(isError && props.pattern.error.home_popover) {
+        overlay = <Tooltip>{props.pattern.error.home_popover}</Tooltip>
+    }
 
     return (
-        <OverlayTrigger
-            placement="bottom"
-            overlay={
-                <Tooltip>
-                    {popover ? props.pattern.error.home_popover : ''}
-                </Tooltip>
-            }
-        >
-            <button className="errorButton" style={{"visibility": popover ? "visible" : "hidden"}}>
+        <OverlayTrigger placement="bottom" overlay={overlay}>
+            <button className="errorButton" style={{"visibility": isError ? "visible" : "hidden"}}>
                 <h6>
                     <i className="bi bi-exclamation-circle"/>
                 </h6>
