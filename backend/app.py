@@ -44,20 +44,20 @@ def read_patterns_file():
     global args
     global data
 
-    try:
-        with open(args.patterns_file) as file:
-            data = json.load(file)
+    # open file with write permissions to error out immediately
+    with open(args.patterns_file, 'a+') as file:
+        file.seek(0)
+        data = json.load(file)
 
-            if 'patterns' in data:
-                for pattern in data['patterns'].values():
-                    if 'error' in pattern and type(pattern['error']) is str:
-                        pattern['error'] = {
-                            'home_popover': pattern['error'],
-                        }
-            else:
-                data['patterns'] = {}
-    except (OSError, ValueError):
-        pass
+    # convert legacy error messages into new
+    if 'patterns' in data:
+        for pattern in data['patterns'].values():
+            if 'error' in pattern and type(pattern['error']) is str:
+                pattern['error'] = {
+                    'home_popover': pattern['error'],
+                }
+    else:
+        data['patterns'] = {}
 
 
 def write_patterns_file():
