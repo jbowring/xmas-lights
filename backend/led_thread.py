@@ -150,7 +150,7 @@ class LEDThread(threading.Thread):
                         if any(0 > colour > 255 for colour in led):
                             pass  # TODO raise exception
 
-                        self.__led_strip[led_index] = (led[0] << 16) | (led[1] << 8) | led[2]
+                        self.__led_strip[led_index] = ((led[0] & 0xff) << 16) | ((led[1] & 0xff) << 8) | (led[2] & 0xff)
                     self.__led_strip.show()
             except BaseException as exception:
                 self.__turn_off()
