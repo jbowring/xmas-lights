@@ -5,11 +5,6 @@ set -e
 APP_NAME="xmas-lights"
 CURRENT_DIR=$(dirname "$0")
 
-if systemctl is-active --quiet "$APP_NAME"
-then
-  systemctl stop "$APP_NAME"
-fi
-
 apt update
 apt install python3-pip python3-venv -y
 python3 -m venv "$CURRENT_DIR/venv"
@@ -29,4 +24,4 @@ EOF
 
 systemctl daemon-reload
 systemctl enable "$APP_NAME"
-systemctl start "$APP_NAME"
+systemctl restart "$APP_NAME"
