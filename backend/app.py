@@ -45,7 +45,11 @@ def read_patterns_file():
     # open file with write permissions to error out immediately
     with open(args.patterns_file, 'a+') as file:
         file.seek(0)
-        data = json.load(file)
+        text = file.read()
+
+        # prevent error when opening empty file
+        if len(text.strip()) > 0:
+            data = json.loads(text)
 
     # convert legacy error messages into new
     if 'patterns' in data:
