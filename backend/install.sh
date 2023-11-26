@@ -1,20 +1,32 @@
-#!/bin/sh
+#!/bin/bash
 
 set -e
 
-name="xmaslights"
-dir=$(dirname "$0")
+APP_NAME="xmas-lights"
+CURRENT_DIR=$(dirname "$0")
 
-if systemctl is-active --quiet "$name"
+if systemctl is-active --quiet "$APP_NAME"
 then
-  systemctl stop "$name"
+  systemctl stop "$APP_NAME"
 fi
 
 apt update
-apt install python3-pip -y
-pip3 install -r "$dir/requirements.txt"
-cp "$dir/$name.service" /lib/systemd/system/
+apt install python3-pip python3-venv -y
+python3 -m venv "$CURRENT_DIR/venv"
+"$CURRENT_DIR/venv/bin/pip" install -r "$CURRENT_DIR/requirements.txt"
+
+cat > "/etc/systemd/system/$APP_NAME.service" << EOF
+[Unit]
+Description=Xmas Lights Service
+After=time-sync.service
+
+[Service]
+ExecStart="$CURRENT_DIR/venv/bin/python" "$CURRENT_DIR/app.py" --led-count 40
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 systemctl daemon-reload
-systemctl enable "$name"
-chmod +x "$dir/app.py"
-systemctl start "$name"
+systemctl enable "$APP_NAME"
+systemctl start "$APP_NAME"

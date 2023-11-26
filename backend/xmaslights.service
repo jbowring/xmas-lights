@@ -1,9 +1,0 @@
-[Unit]
-Description=Xmas Lights Service
-After=time-sync.service
-
-[Service]
-ExecStart=/home/pi/xmas-lights/backend/app.py --led-count 40
-
-[Install]
-WantedBy=multi-user.target
