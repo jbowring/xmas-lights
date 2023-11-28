@@ -115,6 +115,7 @@ class LEDThread(threading.Thread):
         for led_index in range(self.__led_strip.numPixels()):
             self.__led_strip.setPixelColor(led_index, 0)
         self.__led_strip.show()
+        self.calls = 0
 
     def run(self) -> None:
         current_pattern = None

@@ -175,11 +175,19 @@ async def get_update_rate(led_thread):
     led_thread.calls = 0
 
     while True:
-        if last_update is not None:
-            data['update_rate'] = int(led_thread.calls / (time.monotonic() - last_update))
+        calls = led_thread.calls
+
+        if last_update is None:
+            data['update_rate'] = 0
+        else:
+            data['update_rate'] = int(calls / (time.monotonic() - last_update))
 
         led_thread.calls = 0
-        last_update = time.monotonic()
+
+        if calls == 0:
+            last_update = None
+        else:
+            last_update = time.monotonic()
 
         websockets.broadcast(connected_websockets, json.dumps(
             {
