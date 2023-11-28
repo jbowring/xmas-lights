@@ -191,8 +191,10 @@ export default class App extends React.Component {
         return (
           <div>
               <h1 className="main-title">XMAS LIGHTS</h1>
-              <h2 style={{position: "absolute", top: 0, left: 0, color: "lightgray"}}>
+              <h2 style={{position: "absolute", top: 0, left: 5, color: "lightgray"}} hidden={!this.state.updateRate}>
                   {this.state.updateRate ? this.state.updateRate : ""}
+                  <br/>
+                  <h6>updates/sec</h6>
               </h2>
 
               <Schedule
