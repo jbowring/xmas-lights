@@ -7,6 +7,11 @@ import time
 import traceback
 import typing
 
+class _ScriptException(Exception):
+    def __init__(self, exception):
+        super().__init__(self)
+        self.exception = exception
+
 
 class LEDThread(threading.Thread):
     def __init__(
@@ -131,14 +136,21 @@ class LEDThread(threading.Thread):
                 except queue.Empty:
                     global_scope['seconds'] = time.monotonic() - start_time
                 else:
-                    script = compile(current_pattern['script'], current_pattern['name'], 'exec')
+                    try:
+                        script = compile(current_pattern['script'], current_pattern['name'], 'exec')
+                    except BaseException as exception:
+                        raise _ScriptException(exception)
+                    
                     global_scope = dict(self.GLOBAL_SCOPE)
                     start_time = time.monotonic()
 
                 if current_pattern is None:
                     self.__turn_off()
                 else:
-                    exec(script, global_scope)
+                    try:
+                        exec(script, global_scope)
+                    except BaseException as exception:
+                        raise _ScriptException(exception)
 
                     if 'result' not in global_scope:
                         raise ValueError(f"'result' not found in pattern script")
@@ -173,20 +185,31 @@ class LEDThread(threading.Thread):
             except BaseException as exception:
                 self.__turn_off()
                 if current_pattern is not None:
+                    is_script_exception = isinstance(exception, _ScriptException)
+                    
+                    if is_script_exception:
+                        exception = exception.exception
+                    
                     traceback_exception = traceback.TracebackException.from_exception(exception)
                     exception_format = list(traceback_exception.format_exception_only())
+                    
+                    if is_script_exception:
+                        if hasattr(traceback_exception, 'lineno'):
+                            line_number = int(traceback_exception.lineno)
+                            exception_format = exception_format[1:]
+                        else:
+                            line_number = int(traceback_exception.stack[-1].lineno)
 
-                    if hasattr(traceback_exception, 'lineno'):
-                        line_number = int(traceback_exception.lineno)
-                        exception_format = exception_format[1:]
+                        mark_message = ''.join(exception_format).rstrip()
                     else:
-                        line_number = int(traceback_exception.stack[-1].lineno)
+                        line_number = None
+                        mark_message = None                        
 
                     self.__error_callback(
                         current_pattern['id'],
                         exception_format[-1].rstrip(),
                         line_number,
-                        ''.join(exception_format).rstrip(),
+                        mark_message,
                     )
                     current_pattern = None
 
