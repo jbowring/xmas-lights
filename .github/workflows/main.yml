@@ -35,6 +35,6 @@ jobs:
     - name: Build docker image
       run: docker build -t 'image' --build-arg SSH_HOSTNAME="${{ secrets.SSH_HOSTNAME }}" --build-arg SSH_USERNAME="${{ secrets.SSH_USERNAME }}" --build-arg SSH_PRIVKEY="${{ secrets.SSH_PRIVKEY }}" .github/workflows
     - name: Copy artifacts
-      run: docker run --mount type=bind,source=${{ github.workspace }}/backend,target=/data 'image' "rsync" "--recursive" "--progress" "--executability" "--delete-before" "--exclude=venv" "/data/" "server:/home/pi/xmas-lights/"
+      run: docker run --mount type=bind,source=${{ github.workspace }}/backend,target=/data 'image' "rsync" "--recursive" "--progress" "--executability" "--delete-before" "--exclude=venv" "--exclude=.gitignore" "/data/" "server:/home/pi/xmas-lights/"
     - name: Restart services
       run: docker run 'image' "ssh" "server" "chmod +x /home/pi/xmas-lights/install.sh && /home/pi/xmas-lights/install.sh"
