@@ -139,17 +139,34 @@ class LEDThread(threading.Thread):
                     self.__turn_off()
                 else:
                     exec(script, global_scope)
-                    if len(global_scope['result']) > self.__led_strip.size:
-                        pass  # TODO raise exception
+
+                    if 'result' not in global_scope:
+                        raise ValueError(f"'result' not found in pattern script")
+
+                    try:
+                        size = len(global_scope['result'])
+                    except TypeError:
+                        raise TypeError("'result' must be an iterable (e.g. list or tuple)")
+
+                    if size > self.__led_strip.size:
+                        raise ValueError(f"'result' ({size}) is bigger than number of LEDs ({self.__led_strip.size})")
 
                     for led_index, led in enumerate(global_scope['result']):
-                        led = tuple(int(colour) for colour in led)
+                        try:
+                            led_len = len(led)
+                        except TypeError:
+                            raise TypeError(f"Each element of 'result' must be an iterable (e.g. list or tuple)")
 
-                        if len(led) != 3:
-                            pass  # TODO raise exception
+                        if led_len != 3:
+                            raise ValueError(f"Each element of 'result' must contain 3 values")
 
-                        if any(0 > colour > 255 for colour in led):
-                            pass  # TODO raise exception
+                        try:
+                            led = tuple(int(colour) for colour in led)
+                        except (TypeError, ValueError):
+                            led = None
+
+                        if led is None or any(colour < 0 or colour > 255 for colour in led):
+                            raise ValueError(f'Each R, G, B value must be between 0 and 255')
 
                         self.__led_strip[led_index] = ((led[0] & 0xff) << 16) | ((led[1] & 0xff) << 8) | (led[2] & 0xff)
                     self.__led_strip.show()
