@@ -2,6 +2,8 @@ import random
 import sys
 import json
 import pathlib
+import time
+
 import rpi_ws281x
 import websockets
 import asyncio
@@ -166,6 +168,29 @@ async def websocket_handler(websocket, schedule_queue):
         connected_websockets.remove(websocket)
 
 
+async def get_update_rate(led_thread):
+    data['update_rate'] = 0
+
+    last_update = None
+    led_thread.calls = 0
+
+    while True:
+        if last_update is not None:
+            data['update_rate'] = int(led_thread.calls / (time.monotonic() - last_update))
+
+        led_thread.calls = 0
+        last_update = time.monotonic()
+
+        websockets.broadcast(connected_websockets, json.dumps(
+            {
+                'update_rate': data.get('update_rate', 0)
+            },
+            default=json_serialise,
+        ))
+
+        await asyncio.sleep(1)
+
+
 async def run_schedule(schedule_queue):
     global data
 
@@ -185,6 +210,8 @@ async def run_schedule(schedule_queue):
         ),
         led_strip=rpi_ws281x.PixelStrip(args.led_count, 18, strip_type=rpi_ws281x.WS2811_STRIP_RGB)
     )
+
+    asyncio.create_task(get_update_rate(led_thread))
 
     if not args.disable_leds:
         signal.signal(signal.SIGINT, lambda signum, frame: [led_thread.stop(), sys.exit()])

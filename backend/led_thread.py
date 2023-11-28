@@ -19,6 +19,7 @@ class LEDThread(threading.Thread):
         self.__queue = queue.Queue(1)
         self.__error_callback = error_callback
         self.__led_strip = led_strip
+        self.calls = 0
 
         self.__led_strip.begin()
 
@@ -171,6 +172,8 @@ class LEDThread(threading.Thread):
                         ''.join(exception_format).rstrip(),
                     )
                     current_pattern = None
+
+            self.calls += 1
 
     def stop(self):
         self.__queue.put({'type': 'stop'})

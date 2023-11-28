@@ -14,6 +14,7 @@ export default class App extends React.Component {
             now: new Date(),
             patterns: new Map(),
             schedule: new Map(),
+            updateRate: 0,
             webSocketConnected: true,
         };
     }
@@ -42,6 +43,12 @@ export default class App extends React.Component {
             if(data.hasOwnProperty("schedule")) {
                 this.setState({
                     schedule: new Map(Object.entries(data.schedule)),
+                })
+            }
+
+            if(data.hasOwnProperty("update_rate")) {
+                this.setState({
+                    updateRate: data.update_rate,
                 })
             }
         }
@@ -184,6 +191,9 @@ export default class App extends React.Component {
         return (
           <div>
               <h1 className="main-title">XMAS LIGHTS</h1>
+              <h2 style={{position: "absolute", top: 0, left: 0, color: "lightgray"}}>
+                  {this.state.updateRate ? this.state.updateRate : ""}
+              </h2>
 
               <Schedule
                   patterns={this.state.patterns}
