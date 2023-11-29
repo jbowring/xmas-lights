@@ -3,7 +3,6 @@ import sys
 import json
 import pathlib
 import time
-
 import rpi_ws281x
 import websockets
 import asyncio
@@ -15,6 +14,7 @@ from led_thread import LEDThread
 unix_socket_path = '/tmp/xmas-lights.ws.sock'
 connected_websockets = set()
 data = {}
+schedule_timer_handle = None
 
 DEFAULT_PATTERNS_FILE = '/var/lib/xmas-lights/patterns.json'
 
@@ -79,13 +79,13 @@ def json_serialise(_object):
         raise TypeError(f'Object of type {_object.__class__.__name__}  is not JSON serializable')
 
 
-def delete_pattern(request, schedule_queue):
+def delete_pattern(request, led_thread):
     global data
 
     try:
         pattern_id = request['id']
         if data['patterns'][pattern_id].get('active', False):
-            schedule_queue.put_nowait('pattern update')
+            led_thread.clear_pattern()
         del data['patterns'][pattern_id]
     except KeyError:
         return "Invalid Pattern ID", 400  # TODO handle error
@@ -94,7 +94,7 @@ def delete_pattern(request, schedule_queue):
         websockets.broadcast(connected_websockets, json.dumps(data, default=json_serialise))
 
 
-def update_pattern(request, schedule_queue):
+def update_pattern(request, led_thread):
     global data
 
     json_keys = {
@@ -135,7 +135,10 @@ def update_pattern(request, schedule_queue):
                 pattern[key] = request[key]
 
         if update:
-            schedule_queue.put_nowait('pattern update')
+            if pattern['active']:
+                led_thread.set_pattern(pattern_id, pattern)
+            else:
+                led_thread.clear_pattern()
 
         write_patterns_file()
         websockets.broadcast(connected_websockets, json.dumps(data, default=json_serialise))
@@ -144,7 +147,7 @@ def update_pattern(request, schedule_queue):
         return "Incomplete request", 400  # TODO handle error
 
 
-async def websocket_handler(websocket, schedule_queue):
+async def websocket_handler(websocket, led_thread):
     connected_websockets.add(websocket)
     try:
         await websocket.send(json.dumps(data, default=json_serialise))
@@ -152,15 +155,15 @@ async def websocket_handler(websocket, schedule_queue):
             request = json.loads(message)
             if all(key in request for key in ['action', 'payload']):
                 if request['action'] == 'create_pattern':
-                    update_pattern(request['payload'], schedule_queue)
+                    update_pattern(request['payload'], led_thread)
                 elif request['action'] == 'update_pattern':
-                    update_pattern(request['payload'], schedule_queue)
+                    update_pattern(request['payload'], led_thread)
                 elif request['action'] == 'delete_pattern':
-                    delete_pattern(request['payload'], schedule_queue)
+                    delete_pattern(request['payload'], led_thread)
                 elif request['action'] == 'update_schedule':
                     if 'events' in request['payload']:
                         data['schedule']['events'] = request['payload']['events']
-                        schedule_queue.put_nowait('schedule update')
+                        do_schedule(led_thread)
                         write_patterns_file()
     except websockets.ConnectionClosedError:
         pass
@@ -199,86 +202,55 @@ async def get_update_rate(led_thread):
         await asyncio.sleep(1)
 
 
-async def run_schedule(schedule_queue):
-    global data
+def do_schedule(led_thread):
+    global data, schedule_timer_handle
 
     if 'schedule' not in data:
         data['schedule'] = {}
     if 'events' not in data['schedule']:
         data['schedule']['events'] = []
 
-    loop = asyncio.get_running_loop()
-    led_thread = LEDThread(
-        error_callback=lambda pattern_id, home_popover, line_number, mark_message: loop.call_soon_threadsafe(
-            process_error,
-            pattern_id,
-            home_popover,
-            line_number,
-            mark_message,
-        ),
-        led_strip=rpi_ws281x.PixelStrip(args.led_count, 18, strip_type=rpi_ws281x.WS2811_STRIP_RGB)
-    )
+    now = datetime.datetime.now()
 
-    asyncio.create_task(get_update_rate(led_thread))
+    events = data['schedule']['events']
 
-    if not args.disable_leds:
-        signal.signal(signal.SIGINT, lambda signum, frame: [led_thread.stop(), sys.exit()])
-        led_thread.start()
+    for event in events:
+        event['next_datetime'] = datetime.datetime.combine(
+            date=now.date() + datetime.timedelta(days=(event['day'] - now.weekday()) % 7),
+            time=datetime.time(event['hour'], event['minute'])
+        )
 
-    while True:
-        now = datetime.datetime.now()
+        if event['next_datetime'] < now:
+            event['next_datetime'] += datetime.timedelta(days=7)
 
-        events = data['schedule']['events']
+    events.sort(key=lambda x: x['next_datetime'])
 
-        for event in events:
-            event['next_datetime'] = datetime.datetime.combine(
-                date=now.date() + datetime.timedelta(days=(event['day'] - now.weekday()) % 7),
-                time=datetime.time(event['hour'], event['minute'])
-            )
+    on = (len(events) < 1) or (events[-1]['action'] == 'on')
 
-            if event['next_datetime'] < now:
-                event['next_datetime'] += datetime.timedelta(days=7)
+    tomorrow = datetime.datetime.combine(now.date() + datetime.timedelta(days=1), datetime.time.min)
 
-        events.sort(key=lambda event: event['next_datetime'])
+    data['schedule']['status'] = 'on' if on else 'off'
+    data['schedule']['today_weekday'] = now.weekday()
+    data['schedule']['tomorrow_weekday'] = tomorrow.weekday()
 
-        on = (len(events) < 1) or (events[-1]['action'] == 'on')
+    led_thread.enable(on)
 
-        tomorrow = datetime.datetime.combine(now.date() + datetime.timedelta(days=1), datetime.time.min)
+    websockets.broadcast(connected_websockets, json.dumps(
+        {
+            'schedule': data['schedule']
+        },
+        default=json_serialise,
+    ))
 
-        data['schedule']['status'] = 'on' if on else 'off'
-        data['schedule']['today_weekday'] = now.weekday()
-        data['schedule']['tomorrow_weekday'] = tomorrow.weekday()
+    if schedule_timer_handle is not None:
+        schedule_timer_handle.cancel()
 
-        websockets.broadcast(connected_websockets, json.dumps(
-            {
-                'schedule': data['schedule']
-            },
-            default=json_serialise,
-        ))
-
-        while True:
-            if on and any(pattern['active'] for pattern in data['patterns'].values()):
-                for pattern_id, pattern in data['patterns'].items():
-                    if pattern['active']:
-                        led_thread.set_pattern(pattern | {'id': pattern_id})
-                        break
-            else:
-                led_thread.clear_pattern()
-
-            try:
-                if len(events) > 0:
-                    time_to_wakeup = min(events[0]['next_datetime'], tomorrow)
-                    message = await asyncio.wait_for(
-                        schedule_queue.get(),
-                        (time_to_wakeup - datetime.datetime.now()).total_seconds()
-                    )
-                else:
-                    message = await schedule_queue.get()
-
-                if message == 'schedule update':
-                    break
-            except asyncio.exceptions.TimeoutError:
-                break
+    if len(events) > 0:
+        schedule_timer_handle = asyncio.get_running_loop().call_later(
+            (min(events[0]['next_datetime'], tomorrow) - datetime.datetime.now()).total_seconds(),
+            do_schedule,
+            led_thread,
+        )
 
 
 def process_error(pattern_id, home_popover, line_number, mark_message):
@@ -321,10 +293,26 @@ async def websockets_test():
 
 async def main():
     read_patterns_file()
-    schedule_queue = asyncio.Queue()
+
+    loop = asyncio.get_running_loop()
+    led_thread = LEDThread(
+        error_callback=lambda pattern_id, home_popover, line_number, mark_message: loop.call_soon_threadsafe(
+            process_error,
+            pattern_id,
+            home_popover,
+            line_number,
+            mark_message,
+        ),
+        led_strip=rpi_ws281x.PixelStrip(args.led_count, 18, strip_type=rpi_ws281x.WS2811_STRIP_RGB)
+    )
+
+    if not args.disable_leds:
+        signal.signal(signal.SIGINT, lambda signum, frame: [led_thread.stop(), sys.exit()])
+        led_thread.start()
+        asyncio.create_task(get_update_rate(led_thread))
 
     async def websocket_wrapper(websocket):
-        await websocket_handler(websocket, schedule_queue)
+        await websocket_handler(websocket, led_thread)
 
     if args.port is None:
         serve_command = websockets.unix_serve
@@ -334,7 +322,12 @@ async def main():
         serve_args = (websocket_wrapper, 'localhost', args.port)
 
     async with serve_command(*serve_args):
-        asyncio.create_task(run_schedule(schedule_queue))
+        do_schedule(led_thread)
+
+        if any(pattern['active'] for pattern in data['patterns'].values()):
+            for pattern_id, pattern in data['patterns'].items():
+                if pattern['active']:
+                    led_thread.set_pattern(pattern_id, pattern)
 
         if args.websocket_test:
             await websockets_test()

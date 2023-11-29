@@ -21,7 +21,7 @@ class LEDThread(threading.Thread):
             led_strip: rpi_ws281x.PixelStrip
     ):
         super().__init__()
-        self.__queue = queue.Queue(1)
+        self.__queue = queue.Queue()
         self.__error_callback = error_callback
         self.__led_strip = led_strip
         self.calls = 0
@@ -97,19 +97,26 @@ class LEDThread(threading.Thread):
             'seconds': 0.0,
         }
 
-    def set_pattern(self, pattern):
-        try:
-            self.__queue.get_nowait()
-        except queue.Empty:
-            pass
-
-        self.__queue.put({
-            'type': 'pattern',
-            'payload': pattern,
-        })
+    def set_pattern(self, pattern_id, pattern):
+        if self.is_alive():
+            self.__queue.put({
+                'type': 'pattern',
+                'payload': pattern | {'id': pattern_id},
+            })
 
     def clear_pattern(self):
-        self.set_pattern(None)
+        if self.is_alive():
+            self.__queue.put({
+                'type': 'pattern',
+                'payload': None,
+            })
+
+    def enable(self, enabled):
+        if self.is_alive():
+            self.__queue.put({
+                'type': 'enable',
+                'payload': bool(enabled),
+            })
 
     def __turn_off(self):
         for led_index in range(self.__led_strip.numPixels()):
@@ -119,6 +126,7 @@ class LEDThread(threading.Thread):
 
     def run(self) -> None:
         current_pattern = None
+        enabled = False
         script = None
         start_time = 0
         global_scope = {}
@@ -128,24 +136,27 @@ class LEDThread(threading.Thread):
             # noinspection PyBroadException
             try:
                 try:
-                    message = self.__queue.get(current_pattern is None)
-                    if message['type'] == 'pattern':
-                        current_pattern = message['payload']
-                    elif message['type'] == 'stop':
-                        self.__turn_off()
-                        break
+                    message = self.__queue.get(not enabled or current_pattern is None)
                 except queue.Empty:
                     global_scope['seconds'] = time.monotonic() - start_time
                 else:
-                    try:
-                        script = compile(current_pattern['script'], current_pattern['name'], 'exec')
-                    except BaseException as exception:
-                        raise _ScriptException(exception)
-                    
-                    global_scope = dict(self.GLOBAL_SCOPE)
-                    start_time = time.monotonic()
+                    match message['type']:
+                        case 'pattern':
+                            current_pattern = message['payload']
+                            try:
+                                script = compile(current_pattern['script'], current_pattern['name'], 'exec')
+                            except BaseException as exception:
+                                raise _ScriptException(exception)
 
-                if current_pattern is None:
+                            global_scope = self.GLOBAL_SCOPE.copy()
+                            start_time = time.monotonic()
+                        case 'enable':
+                            enabled = message['payload']
+                        case 'stop':
+                            self.__turn_off()
+                            break
+
+                if not enabled or current_pattern is None:
                     self.__turn_off()
                 else:
                     try:
@@ -186,15 +197,13 @@ class LEDThread(threading.Thread):
             except BaseException as exception:
                 self.__turn_off()
                 if current_pattern is not None:
-                    is_script_exception = isinstance(exception, _ScriptException)
-                    
-                    if is_script_exception:
+                    if isinstance(exception, _ScriptException):
                         exception = exception.exception
                     
                     traceback_exception = traceback.TracebackException.from_exception(exception)
                     exception_format = list(traceback_exception.format_exception_only())
                     
-                    if is_script_exception:
+                    if isinstance(exception, _ScriptException):
                         if hasattr(traceback_exception, 'lineno'):
                             line_number = int(traceback_exception.lineno)
                             exception_format = exception_format[1:]
