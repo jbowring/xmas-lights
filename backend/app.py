@@ -11,20 +11,18 @@ import signal
 import datetime
 from led_thread import LEDThread
 
-unix_socket_path = '/tmp/xmas-lights.ws.sock'
+UNIX_SOCKET_PATH = '/tmp/xmas-lights.ws.sock'
 connected_websockets = set()
 data = {}
 schedule_timer_handle = None
 
-DEFAULT_PATTERNS_FILE = '/var/lib/xmas-lights/patterns.json'
-
 parser = argparse.ArgumentParser()
-parser.add_argument('--led-count', action='store', required=True, type=int, help='Number of LEDs')
+parser.add_argument('--led-count', action='store', required=True, type=int, help='Number of LEDs in string')
 parser.add_argument(
     '--patterns-file',
     action='store',
-    default=DEFAULT_PATTERNS_FILE,
-    help=f'Path to patterns JSON file (default: {DEFAULT_PATTERNS_FILE}'
+    default='/var/lib/xmas-lights/patterns.json',
+    help='Path to patterns JSON file (default: %(default)s)'
 )
 parser.add_argument('--disable-leds', action='store_true', help='Disable LED output')
 parser.add_argument('--websocket-test', action='store_true', help='Send websocket updates once per second')
@@ -32,8 +30,7 @@ parser.add_argument(
     '--port',
     action='store',
     type=int,
-    default=None,
-    help=f'Port to host the websocket server on. If not provided, it will be hosted on a UNIX socket at {unix_socket_path}'
+    help=f'Port to host the websocket server on. If not provided, it will be hosted on a UNIX socket at {UNIX_SOCKET_PATH}'
 )
 args = parser.parse_args()
 
@@ -316,7 +313,7 @@ async def main():
 
     if args.port is None:
         serve_command = websockets.unix_serve
-        serve_args = (websocket_wrapper, unix_socket_path)
+        serve_args = (websocket_wrapper, UNIX_SOCKET_PATH)
     else:
         serve_command = websockets.serve
         serve_args = (websocket_wrapper, 'localhost', args.port)
