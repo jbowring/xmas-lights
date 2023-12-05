@@ -16,7 +16,7 @@ Description=Xmas Lights Service
 After=time-sync.service
 
 [Service]
-ExecStart="$CURRENT_DIR/venv/bin/python" "$CURRENT_DIR/app.py" --led-count 40
+ExecStart="$CURRENT_DIR/venv/bin/python" "$CURRENT_DIR/app.py" --led-count 90
 
 [Install]
 WantedBy=multi-user.target
