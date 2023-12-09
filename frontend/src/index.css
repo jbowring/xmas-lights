@@ -177,7 +177,6 @@ h6 {
   padding: 0;
   color: gray;
   visibility: hidden;
-  alignment: right;
 }
 
 .activeButton .bi-stop-fill {
