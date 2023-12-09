@@ -93,7 +93,7 @@ export default class PatternModal extends React.Component {
         let show = this.state.currentPattern !== null;
 
         return (
-            <Modal size="lg" show={show} onHide={() => {
+            <Modal size="xl" show={show} onHide={() => {
                 if(!this.state.contentsModified) {
                     this.close()
                 }
@@ -102,7 +102,7 @@ export default class PatternModal extends React.Component {
                     <h1 className="modal-title fs-5">Edit pattern</h1>
                 </Modal.Header>
                 <Modal.Body>
-                    <form ref={this.form} className={this.state.validated ? 'was-validated' : ''}>
+                    <form id="modal-form" ref={this.form} className={this.state.validated ? 'was-validated' : ''}>
                         <div className="form-group">
                             <label htmlFor="editPatternName">Pattern name:</label>
                             <input
@@ -127,7 +127,7 @@ export default class PatternModal extends React.Component {
                             />
                         </div>
                         <br/>
-                        <div className="form-group">
+                        <div id="editor-form-group" className="form-group">
                             <label htmlFor="monaco-editor-container">Code:</label>
                             <Instructions/>
                             <div id="monaco-editor-container">
