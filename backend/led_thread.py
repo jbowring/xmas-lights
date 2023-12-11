@@ -99,7 +99,7 @@ class LEDThread(threading.Thread):
                 'zip': zip,
             },
             'max_leds': self.__led_strip.numPixels(),
-            'seconds': 0.0,
+            't': 0.0,
         }
 
     def set_pattern(self, pattern_id, pattern):
@@ -143,7 +143,7 @@ class LEDThread(threading.Thread):
                 try:
                     message = self.__queue.get(not enabled or current_pattern is None)
                 except queue.Empty:
-                    global_scope['seconds'] = time.monotonic() - start_time
+                    global_scope['t'] = time.monotonic() - start_time
                 else:
                     match message['type']:
                         case 'pattern':

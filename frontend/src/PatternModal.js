@@ -17,8 +17,8 @@ function Instructions() {
                 <b>Parameters</b>
                 <p>
                     <code>max_leds -> int </code> Number of LEDs in the string<br />
-                    <code>seconds -> float </code> Elapsed time (in seconds) since
-                    the pattern started
+                    <code>t -> float </code> Elapsed time (in seconds) since the
+                    pattern started
                 </p>
                 <b>Output</b>
                 <p>
