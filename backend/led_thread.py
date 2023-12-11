@@ -6,6 +6,8 @@ import threading
 import time
 import traceback
 import typing
+import numpy
+import requests
 
 class _ScriptException(Exception):
     def __init__(self, exception):
@@ -32,6 +34,9 @@ class LEDThread(threading.Thread):
         self.GLOBAL_SCOPE = {
             'math': math,
             'random': random,
+            'numpy': numpy,
+            'np': numpy,
+            'requests': requests,
             '__builtins__': {
                 '__build_class__': __build_class__,
                 '__name__': '',

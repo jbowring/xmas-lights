@@ -10,7 +10,9 @@ function Instructions() {
                 <b>Pre-imported modules</b>
                 <p>
                     <code>math</code><br />
-                    <code>random</code>
+                    <code>random</code><br />
+                    <code>numpy</code><br />
+                    <code>requests</code> (for making web requests to websites)
                 </p>
                 <b>Parameters</b>
                 <p>

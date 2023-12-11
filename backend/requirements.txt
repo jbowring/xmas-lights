@@ -1,2 +1,4 @@
 rpi_ws281x~=5.0
 websockets~=12.0
+numpy~=1.26
+requests~=2.31
