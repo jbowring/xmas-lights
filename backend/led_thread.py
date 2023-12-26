@@ -205,11 +205,12 @@ class LEDThread(threading.Thread):
                 self.__turn_off()
                 if current_pattern is not None:
                     if isinstance(exception, _ScriptException):
-                        exception = exception.exception
-                    
-                    traceback_exception = traceback.TracebackException.from_exception(exception)
+                        traceback_exception = traceback.TracebackException.from_exception(exception.exception)
+                    else:
+                        traceback_exception = traceback.TracebackException.from_exception(exception)
+
                     exception_format = list(traceback_exception.format_exception_only())
-                    
+
                     if isinstance(exception, _ScriptException):
                         if hasattr(traceback_exception, 'lineno'):
                             line_number = int(traceback_exception.lineno)
