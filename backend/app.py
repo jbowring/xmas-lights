@@ -1,3 +1,4 @@
+import importlib
 import random
 import sys
 import json
@@ -15,6 +16,11 @@ UNIX_SOCKET_PATH = '/tmp/xmas-lights.ws.sock'
 connected_websockets = set()
 data = {}
 schedule_timer_handle = None
+plugins_enabled = {
+    'teams': {
+        'enabled': True,
+    }
+}
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--led-count', action='store', required=True, type=int, help='Number of LEDs in string')
@@ -23,6 +29,12 @@ parser.add_argument(
     action='store',
     default='/var/lib/xmas-lights/patterns.json',
     help='Path to patterns JSON file (default: %(default)s)'
+)
+parser.add_argument(
+    '--plugins',
+    action='store',
+    default='/var/lib/xmas-lights/plugins/',
+    help='Path to plugins directory (default: %(default)s)'
 )
 parser.add_argument('--disable-leds', action='store_true', help='Disable LED output')
 parser.add_argument('--websocket-test', action='store_true', help='Send websocket updates once per second')
@@ -291,6 +303,16 @@ async def websockets_test():
 async def main():
     read_patterns_file()
 
+    external_globals = {}
+    for name, plugin_config in plugins_enabled.items():
+        if plugin_config['enabled']:
+            plugin_path = pathlib.Path(args.plugins, name)
+            plugin_path.mkdir(parents=True, exist_ok=True)
+            plugin_config['thread'] = importlib.import_module(f'plugins.{name}.plugin').Plugin(plugin_path)
+
+            external_globals |= plugin_config['thread'].get_exports()
+            plugin_config['thread'].start()
+
     loop = asyncio.get_running_loop()
     led_thread = LEDThread(
         error_callback=lambda pattern_id, home_popover, line_number, mark_message: loop.call_soon_threadsafe(
@@ -300,11 +322,22 @@ async def main():
             line_number,
             mark_message,
         ),
-        led_strip=rpi_ws281x.PixelStrip(args.led_count, 18, strip_type=rpi_ws281x.WS2811_STRIP_RGB)
+        led_strip=rpi_ws281x.PixelStrip(args.led_count, 18, strip_type=rpi_ws281x.WS2811_STRIP_RGB),
+        external_globals=external_globals,
     )
 
+    def stop(signum, frame):
+        for name, plugin_config in plugins_enabled.items():
+            if plugin_config['enabled'] and 'thread' in plugin_config:
+                plugin_config['thread'].stop()
+
+        if led_thread.is_alive():
+            led_thread.stop()
+        sys.exit()
+
+    signal.signal(signal.SIGINT, stop)
+
     if not args.disable_leds:
-        signal.signal(signal.SIGINT, lambda signum, frame: [led_thread.stop(), sys.exit()])
         led_thread.start()
         asyncio.create_task(get_update_rate(led_thread))
 

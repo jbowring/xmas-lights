@@ -9,6 +9,7 @@ import typing
 import numpy
 import requests
 
+
 class _ScriptException(Exception):
     def __init__(self, exception):
         super().__init__(self)
@@ -20,7 +21,8 @@ class LEDThread(threading.Thread):
             self,
             *,
             error_callback: typing.Callable[[typing.Any, str, int, str], typing.NoReturn],
-            led_strip: rpi_ws281x.PixelStrip
+            led_strip: rpi_ws281x.PixelStrip,
+            external_globals: dict[str, typing.Callable] = None,
     ):
         super().__init__()
         self.__queue = queue.Queue()
@@ -103,6 +105,9 @@ class LEDThread(threading.Thread):
             'max_leds': self.__led_strip.numPixels(),
             't': 0.0,
         }
+
+        if external_globals is not None:
+            self.GLOBAL_SCOPE |= external_globals
 
     def set_pattern(self, pattern_id, pattern):
         if self.is_alive():
@@ -235,4 +240,5 @@ class LEDThread(threading.Thread):
 
     def stop(self):
         self.__queue.put({'type': 'stop'})
-        self.join()
+        if self.is_alive():
+            self.join()

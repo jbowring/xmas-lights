@@ -1,0 +1,6 @@
+tenant_id = 'tenant id'
+client_id = 'client id'
+
+people_site = 'people site id'
+people_list = 'people list id'
+people_user_info_list = 'people user info list id'
