@@ -60,11 +60,7 @@ export default class App extends React.Component {
     }
 
     componentDidMount() {
-        if(process.env.NODE_ENV === "development") {
-            this.beginWebSocket("ws://127.0.0.1:5000/ws")
-        } else {
-            this.beginWebSocket((window.location.protocol === "https:" ? "wss://" : "ws://") + "ws." + window.location.host);
-        }
+        this.beginWebSocket(process.env.REACT_APP_WEBSOCKET_URL);
         this.setState({now: new Date()})
 
         this.timer = setInterval(() => this.setState({now: new Date()}), 1000)
