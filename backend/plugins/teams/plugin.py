@@ -191,7 +191,7 @@ class Plugin(threading.Thread):
 
                 self.__statuses = list(users.values())
 
-            self.__stop_signal.wait(2)
+            self.__stop_signal.wait(1)
 
     def stop(self):
         self.__stop_signal.set()
