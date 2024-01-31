@@ -80,7 +80,7 @@ class Plugin(threading.Thread):
                         batched_requests.append({
                             'id': lookup_id,
                             'method': 'GET',
-                            'url': f'/users/{username}?$select=id'
+                            'url': f'/users/{username}?$select=id,displayName'
                         })
             except StopIteration:
                 done = True
@@ -94,7 +94,9 @@ class Plugin(threading.Thread):
                 )
 
                 for user_response in response.json()['responses']:
-                    users[user_response['body']['id']] = lookup_id_users[user_response['id']]
+                    user_id = user_response['body']['id']
+                    users[user_id] = lookup_id_users[user_response['id']]
+                    users[user_id]['name'] = user_response['body']['displayName']
         return users
 
     def __get_presences(self, user_list):
