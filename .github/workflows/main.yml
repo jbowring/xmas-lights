@@ -9,9 +9,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v5
     - name: Setup Node
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v6
       with:
         node-version: 14
         cache: 'npm'
@@ -35,7 +35,7 @@ jobs:
     if: github.ref == 'refs/heads/master'
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
     - name: Build docker image
       run: docker build -t 'image' --build-arg SSH_HOSTNAME="${{ secrets.SSH_HOSTNAME }}" --build-arg SSH_USERNAME="${{ secrets.SSH_USERNAME }}" --build-arg SSH_PRIVKEY="${{ secrets.SSH_PRIVKEY }}" .github/workflows
     - name: Copy artifacts
