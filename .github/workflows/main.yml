@@ -1,4 +1,8 @@
-on: push
+name: Build and deploy
+
+on:
+  push:
+  workflow_dispatch:
 
 jobs:
   build:
