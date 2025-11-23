@@ -1,15 +1,14 @@
 #!/bin/bash
 
-set -e
+set -euxo pipefail
 
 APP_NAME="xmas-lights"
-CURRENT_DIR=$(realpath $(dirname "$0"))
+CURRENT_DIR=$(realpath "$(dirname "$0")")
 
 curl -LsSf https://astral.sh/uv/install.sh | sh
-source $HOME/.local/bin/env
+source "$HOME/.local/bin/env"
 uv venv --allow-existing "$CURRENT_DIR/.venv"
-source "$CURRENT_DIR/.venv/bin/activate"
-uv pip install -r "$CURRENT_DIR/requirements.txt"
+uv sync --directory "$CURRENT_DIR" --no-dev --group prod
 
 cat > "/etc/systemd/system/$APP_NAME.service" << EOF
 [Unit]
