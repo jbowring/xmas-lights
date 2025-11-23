@@ -7,7 +7,7 @@ CURRENT_DIR=$(realpath $(dirname "$0"))
 
 curl -LsSf https://astral.sh/uv/install.sh | sh
 source $HOME/.local/bin/env
-uv venv "$CURRENT_DIR/.venv"
+uv venv --allow-existing "$CURRENT_DIR/.venv"
 source "$CURRENT_DIR/.venv/bin/activate"
 uv pip install -r "$CURRENT_DIR/requirements.txt"
 
