@@ -1,5 +1,6 @@
 WS2811_STRIP_RGB = 0x100800
 
+
 class PixelStrip:
     def __init__(self, num, pin, *args, **kwargs):
         self.num = num
@@ -13,7 +14,7 @@ class PixelStrip:
 
     # noinspection PyMethodMayBeStatic
     def show(self):
-        print(f"[WS2812 mock] Show")
+        print("[WS2812 mock] Show")
 
     # noinspection PyPep8Naming
     def setPixelColor(self, n, color):
@@ -29,6 +30,7 @@ class PixelStrip:
 
     def __getitem__(self, index):
         return self._led_data[index]
+
 
 # noinspection PyPep8Naming
 def Color(red, green, blue, white=0):

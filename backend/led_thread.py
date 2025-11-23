@@ -1,13 +1,15 @@
 import math
 import queue
 import random
-import rpi_ws281x_proxy as rpi_ws281x
 import threading
 import time
 import traceback
 import typing
+
 import numpy
 import requests
+
+import rpi_ws281x_proxy as rpi_ws281x
 
 
 class _ScriptException(Exception):
@@ -247,7 +249,7 @@ class LEDThread(threading.Thread):
                         raise _ScriptException(exception)
 
                     if 'result' not in global_scope:
-                        raise ValueError(f"'result' not found in pattern script")
+                        raise ValueError("'result' not found in pattern script")
 
                     try:
                         size = len(global_scope['result'])
@@ -261,10 +263,10 @@ class LEDThread(threading.Thread):
                         try:
                             led_len = len(led)
                         except TypeError:
-                            raise TypeError(f"Each element of 'result' must be an iterable (e.g. list or tuple)")
+                            raise TypeError("Each element of 'result' must be an iterable (e.g. list or tuple)")
 
                         if led_len != 3:
-                            raise ValueError(f"Each element of 'result' must contain 3 values")
+                            raise ValueError("Each element of 'result' must contain 3 values")
 
                         try:
                             led = tuple(int(colour) for colour in led)
@@ -272,7 +274,7 @@ class LEDThread(threading.Thread):
                             led = None
 
                         if led is None or any(colour < 0 or colour > 255 for colour in led):
-                            raise ValueError(f'Each R, G, B value must be between 0 and 255')
+                            raise ValueError('Each R, G, B value must be between 0 and 255')
 
                         self.__led_strip[led_index] = ((led[0] & 0xff) << 16) | ((led[1] & 0xff) << 8) | (led[2] & 0xff)
                     self.__led_strip.show()
@@ -296,7 +298,7 @@ class LEDThread(threading.Thread):
                         mark_message = ''.join(exception_format).rstrip()
                     else:
                         line_number = None
-                        mark_message = None                        
+                        mark_message = None
 
                     self.__error_callback(
                         current_pattern['id'],

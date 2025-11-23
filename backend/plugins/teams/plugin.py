@@ -1,15 +1,16 @@
+import json
 import pathlib
 import sys
+import threading
 
 import pydantic
 
-import plugins.teams.graphrequests as graph_requests
 import plugins.plugin
-import json
-import threading
+import plugins.teams.graphrequests as graph_requests
 
 _GRAPH_V1_ENDPOINT = 'https://graph.microsoft.com/v1.0'
 _GRAPH_BETA_ENDPOINT = 'https://graph.microsoft.com/beta'
+
 
 class Config(pydantic.BaseModel):
     enabled: bool = False
@@ -18,6 +19,7 @@ class Config(pydantic.BaseModel):
     people_site: str
     people_list: str
     people_user_info_list: str
+
 
 class Plugin(plugins.plugin.Plugin):
     def __init__(self, plugin_directory: pathlib.Path, config: Config):
@@ -41,7 +43,7 @@ class Plugin(plugins.plugin.Plugin):
         }
 
     def __cache_write(self, new_refresh_token):
-        with open(self.__cache_path, 'w', encoding='utf-8') as file:
+        with self.__cache_path.open('w', encoding='utf-8') as file:
             json.dump({'refresh_token': new_refresh_token}, file)
 
     def __get_statuses(self):
@@ -70,7 +72,7 @@ class Plugin(plugins.plugin.Plugin):
 
         for item in response.json()['value']:
             lookup_id = item['fields']['id']
-            if lookup_id in lookup_id_users.keys():
+            if lookup_id in lookup_id_users:
                 lookup_id_users[lookup_id]['username'] = item['fields']['UserName']
 
         users = {}
@@ -163,7 +165,7 @@ class Plugin(plugins.plugin.Plugin):
 
     def run(self) -> None:
         try:
-            with open(self.__cache_path, 'r', encoding='utf-8') as file:
+            with self.__cache_path.open(encoding='utf-8') as file:
                 refresh_token = json.load(file)['refresh_token']
         except (FileNotFoundError, json.JSONDecodeError, KeyError):
             refresh_token = None

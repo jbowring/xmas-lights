@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import contextlib
 import datetime
 import importlib
 import json
@@ -9,35 +10,35 @@ import random
 import signal
 import sys
 import time
-import typing
 
 import pydantic
 import pydantic_settings
 import websockets
 
-import led_thread
-import plugins.teams.plugin
 import plugins.plugin
+import plugins.teams.plugin
 import rpi_ws281x_proxy as rpi_ws281x
 from led_thread import LEDThread
 
-CONFIG_ENV_VAR='XMAS_LIGHTS_CONFIG'
+CONFIG_ENV_VAR = 'XMAS_LIGHTS_CONFIG'
 UNIX_SOCKET_PATH = '/tmp/xmas-lights.ws.sock'
 DEFAULT_DIR = '/var/lib/xmas-lights'
 
-patterns_file = f'{DEFAULT_DIR}/patterns.json'
+patterns_file = pathlib.Path(f'{DEFAULT_DIR}/patterns.json')
 connected_websockets = set()
 data = {}
 schedule_timer_handle = None
 
+
 class PluginsConfig(pydantic.BaseModel):
-    teams: typing.Optional[plugins.teams.plugin.Config] = None
+    teams: plugins.teams.plugin.Config | None = None
+
 
 class AppConfig(pydantic_settings.BaseSettings):
     led_count: int
-    patterns_file: str = patterns_file
+    patterns_file: pathlib.Path = patterns_file
     plugins_dir: str = f'{DEFAULT_DIR}/plugins/'
-    port: typing.Optional[int] = None
+    port: int | None = None
     disable_leds: bool = False
     websocket_test: bool = False
 
@@ -50,7 +51,7 @@ class AppConfig(pydantic_settings.BaseSettings):
     @classmethod
     def settings_customise_sources(
             cls,
-            settings_cls: typing.Type[pydantic_settings.BaseSettings],
+            settings_cls: type[pydantic_settings.BaseSettings],
             init_settings: pydantic_settings.PydanticBaseSettingsSource,
             env_settings: pydantic_settings.PydanticBaseSettingsSource,
             dotenv_settings: pydantic_settings.PydanticBaseSettingsSource,
@@ -64,12 +65,13 @@ class AppConfig(pydantic_settings.BaseSettings):
             file_secret_settings,
         )
 
+
 def read_patterns_file():
     global patterns_file
     global data
 
     # open file with write permissions to error out immediately
-    with open(patterns_file, 'a+') as file:
+    with patterns_file.open('a+') as file:
         file.seek(0)
         text = file.read()
 
@@ -92,15 +94,15 @@ def write_patterns_file():
     global patterns_file
     global data
 
-    with open(patterns_file, 'w') as file:
+    with patterns_file.open('w') as file:
         json.dump(data, file, indent=2, default=json_serialise)
 
 
 def json_serialise(_object):
     if isinstance(_object, datetime.datetime):
         return _object.isoformat()
-    else:
-        raise TypeError(f'Object of type {_object.__class__.__name__}  is not JSON serializable')
+
+    raise TypeError(f'Object of type {_object.__class__.__name__}  is not JSON serializable')
 
 
 def delete_pattern(request, led_thread):
@@ -173,24 +175,25 @@ def update_pattern(request, led_thread):
         # return "Incomplete request", 400  # TODO handle error
 
 
-async def websocket_handler(websocket: websockets.WebSocketServerProtocol, led_thread: led_thread.LEDThread):
+async def websocket_handler(websocket: websockets.WebSocketServerProtocol, led_thread: LEDThread):
     connected_websockets.add(websocket)
     try:
         await websocket.send(json.dumps(data, default=json_serialise))
         async for message in websocket:
             request = json.loads(message)
             if all(key in request for key in ['action', 'payload']):
-                if request['action'] == 'create_pattern':
-                    update_pattern(request['payload'], led_thread)
-                elif request['action'] == 'update_pattern':
-                    update_pattern(request['payload'], led_thread)
-                elif request['action'] == 'delete_pattern':
-                    delete_pattern(request['payload'], led_thread)
-                elif request['action'] == 'update_schedule':
-                    if 'events' in request['payload']:
-                        data['schedule']['events'] = request['payload']['events']
-                        do_schedule(led_thread)
-                        write_patterns_file()
+                match request['action']:
+                    case 'create_pattern':
+                        update_pattern(request['payload'], led_thread)
+                    case 'update_pattern':
+                        update_pattern(request['payload'], led_thread)
+                    case 'delete_pattern':
+                        delete_pattern(request['payload'], led_thread)
+                    case 'update_schedule':
+                        if 'events' in request['payload']:
+                            data['schedule']['events'] = request['payload']['events']
+                            do_schedule(led_thread)
+                            write_patterns_file()
     except websockets.ConnectionClosedError:
         pass
     finally:
@@ -205,18 +208,14 @@ async def get_update_rate(led_thread):
 
     while True:
         calls = led_thread.calls
+        led_thread.calls = 0
 
         if last_update is None:
             data['update_rate'] = 0
         else:
             data['update_rate'] = int(calls / (time.monotonic() - last_update))
 
-        led_thread.calls = 0
-
-        if calls == 0:
-            last_update = None
-        else:
-            last_update = time.monotonic()
+        last_update = None if calls == 0 else time.monotonic()
 
         websockets.broadcast(connected_websockets, json.dumps(
             {
@@ -310,10 +309,8 @@ async def websockets_test():
             await asyncio.sleep(1)
             i += 1
     finally:
-        try:
+        with contextlib.suppress(KeyError):
             del data['patterns']['websocket_test']
-        except KeyError:
-            pass
         write_patterns_file()
 
 
@@ -391,11 +388,11 @@ if __name__ == "__main__":
         '--config',
         action='store',
         default=os.environ.get('XMAS_LIGHTS_CONFIG', '/var/lib/xmas-lights/config.toml'),
-        help=f'Path to configuration file (default: %(default)s)'
+        help='Path to configuration file (default: %(default)s)'
     )
     args = parser.parse_args()
 
-    if not os.path.exists(args.config):
+    if not pathlib.Path(args.config).exists():
         print(f"Configuration file not found at: {args.config}", file=sys.stderr)
         sys.exit(1)
 

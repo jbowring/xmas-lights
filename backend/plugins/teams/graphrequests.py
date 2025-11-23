@@ -1,4 +1,5 @@
 import time
+
 import requests
 
 RequestException = requests.RequestException
@@ -50,16 +51,15 @@ class GraphRequests:
                     if error == 'authorization_pending':
                         time.sleep(1)
                         continue
-                    elif error in ['authorization_declined', 'bad_verification_code', 'expired_token']:
+
+                    if error in ['authorization_declined', 'bad_verification_code', 'expired_token']:
                         break
-                    else:
-                        response.raise_for_status()
-                else:
-                    response.raise_for_status()
-                    response_json = response.json()
-                    self.__set_refresh_token(response_json['refresh_token'])
-                    self.__access_token = response_json['access_token']
-                    return
+
+                response.raise_for_status()
+                response_json = response.json()
+                self.__set_refresh_token(response_json['refresh_token'])
+                self.__access_token = response_json['access_token']
+                return
 
     def __new_access_token(self, retry=True):
         response = requests.post(
@@ -74,7 +74,7 @@ class GraphRequests:
 
         if response.status_code == 401 and retry is True:
             self.__login()
-            return self.__new_access_token(False)
+            self.__new_access_token(False)
 
         response.raise_for_status()
         response_json = response.json()
@@ -99,6 +99,6 @@ class GraphRequests:
         if response.status_code == 401 and retry is True:
             self.__new_access_token()
             return self.__request(method, url, retry=False, **kwargs)
-        else:
-            response.raise_for_status()
-            return response
+
+        response.raise_for_status()
+        return response
