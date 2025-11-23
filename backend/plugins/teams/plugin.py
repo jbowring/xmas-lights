@@ -1,28 +1,35 @@
 import pathlib
 import sys
+
+import pydantic
+
 import plugins.teams.graphrequests as graph_requests
-import tomllib
+import plugins.plugin
 import json
 import threading
 
 _GRAPH_V1_ENDPOINT = 'https://graph.microsoft.com/v1.0'
 _GRAPH_BETA_ENDPOINT = 'https://graph.microsoft.com/beta'
 
+class Config(pydantic.BaseModel):
+    enabled: bool = False
+    tenant_id: str
+    client_id: str
+    people_site: str
+    people_list: str
+    people_user_info_list: str
 
-class Plugin(threading.Thread):
-    def __init__(self, plugin_directory: pathlib.Path):
+class Plugin(plugins.plugin.Plugin):
+    def __init__(self, plugin_directory: pathlib.Path, config: Config):
         super().__init__()
         self.__plugin_directory = plugin_directory
         self.__cache_path = plugin_directory.joinpath('cache.json')
 
-        with open(plugin_directory.joinpath('config.toml'), 'rb') as file:
-            config = tomllib.load(file)
-
-        self.__tenant_id = config['tenant_id']
-        self.__client_id = config['client_id']
-        self.__people_list = config['people_list']
-        self.__people_user_info_list = config['people_user_info_list']
-        self.__people_site_lists = f'{_GRAPH_V1_ENDPOINT}/sites/{config["people_site"]}/lists'
+        self.__tenant_id = config.tenant_id
+        self.__client_id = config.client_id
+        self.__people_list = config.people_list
+        self.__people_user_info_list = config.people_user_info_list
+        self.__people_site_lists = f'{_GRAPH_V1_ENDPOINT}/sites/{config.people_site}/lists'
 
         self.__graph_requests = None
         self.__statuses = None

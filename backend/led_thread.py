@@ -1,7 +1,7 @@
 import math
 import queue
 import random
-import rpi_ws281x
+import rpi_ws281x_proxy as rpi_ws281x
 import threading
 import time
 import traceback

@@ -1,60 +1,75 @@
-import importlib
-import random
-import sys
-import json
-import pathlib
-import time
-import rpi_ws281x
-import websockets
-import asyncio
 import argparse
-import signal
+import asyncio
 import datetime
+import importlib
+import json
+import os
+import pathlib
+import random
+import signal
+import sys
+import time
+import typing
+
+import pydantic
+import pydantic_settings
+import websockets
+
+import led_thread
+import plugins.teams.plugin
+import plugins.plugin
+import rpi_ws281x_proxy as rpi_ws281x
 from led_thread import LEDThread
 
+CONFIG_ENV_VAR='XMAS_LIGHTS_CONFIG'
 UNIX_SOCKET_PATH = '/tmp/xmas-lights.ws.sock'
+DEFAULT_DIR = '/var/lib/xmas-lights'
+
+patterns_file = f'{DEFAULT_DIR}/patterns.json'
 connected_websockets = set()
 data = {}
 schedule_timer_handle = None
-plugins_enabled = {
-    'teams': {
-        'enabled': True,
-    }
-}
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--led-count', action='store', required=True, type=int, help='Number of LEDs in string')
-parser.add_argument(
-    '--patterns-file',
-    action='store',
-    default='/var/lib/xmas-lights/patterns.json',
-    help='Path to patterns JSON file (default: %(default)s)'
-)
-parser.add_argument(
-    '--plugins',
-    action='store',
-    default='/var/lib/xmas-lights/plugins/',
-    help='Path to plugins directory (default: %(default)s)'
-)
-parser.add_argument('--disable-leds', action='store_true', help='Disable LED output')
-parser.add_argument('--websocket-test', action='store_true', help='Send websocket updates once per second')
-parser.add_argument(
-    '--port',
-    action='store',
-    type=int,
-    help=f'Port to host the websocket server on. If not provided, it will be hosted on a UNIX socket at {UNIX_SOCKET_PATH}'
-)
-args = parser.parse_args()
+class PluginsConfig(pydantic.BaseModel):
+    teams: typing.Optional[plugins.teams.plugin.Config] = None
 
-pathlib.Path(args.patterns_file).parent.mkdir(parents=True, exist_ok=True)
+class AppConfig(pydantic_settings.BaseSettings):
+    led_count: int
+    patterns_file: str = patterns_file
+    plugins_dir: str = f'{DEFAULT_DIR}/plugins/'
+    port: typing.Optional[int] = None
+    disable_leds: bool = False
+    websocket_test: bool = False
 
+    plugins: PluginsConfig = pydantic.Field(default_factory=PluginsConfig)
+
+    model_config = pydantic_settings.SettingsConfigDict(
+        env_prefix='XMAS_LIGHTS_'
+    )
+
+    @classmethod
+    def settings_customise_sources(
+            cls,
+            settings_cls: typing.Type[pydantic_settings.BaseSettings],
+            init_settings: pydantic_settings.PydanticBaseSettingsSource,
+            env_settings: pydantic_settings.PydanticBaseSettingsSource,
+            dotenv_settings: pydantic_settings.PydanticBaseSettingsSource,
+            file_secret_settings: pydantic_settings.PydanticBaseSettingsSource,
+    ) -> tuple[pydantic_settings.PydanticBaseSettingsSource, ...]:
+        return (
+            init_settings,
+            env_settings,
+            dotenv_settings,
+            pydantic_settings.TomlConfigSettingsSource(settings_cls),
+            file_secret_settings,
+        )
 
 def read_patterns_file():
-    global args
+    global patterns_file
     global data
 
     # open file with write permissions to error out immediately
-    with open(args.patterns_file, 'a+') as file:
+    with open(patterns_file, 'a+') as file:
         file.seek(0)
         text = file.read()
 
@@ -74,10 +89,10 @@ def read_patterns_file():
 
 
 def write_patterns_file():
-    global args
+    global patterns_file
     global data
 
-    with open(args.patterns_file, 'w') as file:
+    with open(patterns_file, 'w') as file:
         json.dump(data, file, indent=2, default=json_serialise)
 
 
@@ -97,7 +112,8 @@ def delete_pattern(request, led_thread):
             led_thread.clear_pattern()
         del data['patterns'][pattern_id]
     except KeyError:
-        return "Invalid Pattern ID", 400  # TODO handle error
+        pass
+        # return "Invalid Pattern ID", 400  # TODO handle error
     else:
         write_patterns_file()
         websockets.broadcast(connected_websockets, json.dumps(data, default=json_serialise))
@@ -153,10 +169,11 @@ def update_pattern(request, led_thread):
         websockets.broadcast(connected_websockets, json.dumps(data, default=json_serialise))
 
     else:
-        return "Incomplete request", 400  # TODO handle error
+        pass
+        # return "Incomplete request", 400  # TODO handle error
 
 
-async def websocket_handler(websocket, led_thread):
+async def websocket_handler(websocket: websockets.WebSocketServerProtocol, led_thread: led_thread.LEDThread):
     connected_websockets.add(websocket)
     try:
         await websocket.send(json.dumps(data, default=json_serialise))
@@ -300,18 +317,23 @@ async def websockets_test():
         write_patterns_file()
 
 
-async def main():
+async def main(config: AppConfig):
+    global patterns_file
+    patterns_file = config.patterns_file
+    pathlib.Path(patterns_file).parent.mkdir(parents=True, exist_ok=True)
     read_patterns_file()
 
+    active_plugins: list[plugins.plugin.Plugin] = []
     external_globals = {}
-    for name, plugin_config in plugins_enabled.items():
-        if plugin_config['enabled']:
-            plugin_path = pathlib.Path(args.plugins, name)
+    for name, plugin_config in config.plugins:
+        if plugin_config is not None and plugin_config.enabled:
+            plugin_path = pathlib.Path(config.plugins_dir, name)
             plugin_path.mkdir(parents=True, exist_ok=True)
-            plugin_config['thread'] = importlib.import_module(f'plugins.{name}.plugin').Plugin(plugin_path)
+            plugin_thread = importlib.import_module(f'plugins.{name}.plugin').Plugin(plugin_path, plugin_config)
 
-            external_globals |= plugin_config['thread'].get_exports()
-            plugin_config['thread'].start()
+            external_globals |= plugin_thread.get_exports()
+            plugin_thread.start()
+            active_plugins.append(plugin_thread)
 
     loop = asyncio.get_running_loop()
     led_thread = LEDThread(
@@ -322,14 +344,14 @@ async def main():
             line_number,
             mark_message,
         ),
-        led_strip=rpi_ws281x.PixelStrip(args.led_count, 18, strip_type=rpi_ws281x.WS2811_STRIP_RGB),
+        led_strip=rpi_ws281x.PixelStrip(config.led_count, 18, strip_type=rpi_ws281x.WS2811_STRIP_RGB),
         external_globals=external_globals,
     )
 
+    # noinspection PyUnusedLocal
     def stop(signum, frame):
-        for name, plugin_config in plugins_enabled.items():
-            if plugin_config['enabled'] and 'thread' in plugin_config:
-                plugin_config['thread'].stop()
+        for plugin_thread in active_plugins:
+            plugin_thread.stop()
 
         if led_thread.is_alive():
             led_thread.stop()
@@ -337,21 +359,19 @@ async def main():
 
     signal.signal(signal.SIGINT, stop)
 
-    if not args.disable_leds:
+    if not config.disable_leds:
         led_thread.start()
         asyncio.create_task(get_update_rate(led_thread))
 
-    async def websocket_wrapper(websocket):
+    async def websocket_wrapper(websocket: websockets.WebSocketServerProtocol):
         await websocket_handler(websocket, led_thread)
 
-    if args.port is None:
-        serve_command = websockets.unix_serve
-        serve_args = (websocket_wrapper, UNIX_SOCKET_PATH)
+    if config.port is None:
+        server = websockets.unix_serve(websocket_wrapper, UNIX_SOCKET_PATH)
     else:
-        serve_command = websockets.serve
-        serve_args = (websocket_wrapper, 'localhost', args.port)
+        server = websockets.serve(websocket_wrapper, 'localhost', config.port)
 
-    async with serve_command(*serve_args):
+    async with server:
         do_schedule(led_thread)
 
         if any(pattern['active'] for pattern in data['patterns'].values()):
@@ -359,11 +379,27 @@ async def main():
                 if pattern['active']:
                     led_thread.set_pattern(pattern_id, pattern)
 
-        if args.websocket_test:
+        if config.websocket_test:
             await websockets_test()
         else:
             await asyncio.Future()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--config',
+        action='store',
+        default=os.environ.get('XMAS_LIGHTS_CONFIG', '/var/lib/xmas-lights/config.toml'),
+        help=f'Path to configuration file (default: %(default)s)'
+    )
+    args = parser.parse_args()
+
+    if not os.path.exists(args.config):
+        print(f"Configuration file not found at: {args.config}", file=sys.stderr)
+        sys.exit(1)
+
+    AppConfig.model_config['toml_file'] = args.config
+
+    # noinspection PyArgumentList
+    asyncio.run(main(AppConfig()))
