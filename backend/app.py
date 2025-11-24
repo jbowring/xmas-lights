@@ -10,22 +10,22 @@ import random
 import signal
 import sys
 import time
+import typing
 
 import pydantic
 import pydantic_settings
 import websockets
 
 import ledthread
-import plugins.plugin
 import plugins.teams
-import rpi_ws281x_proxy as rpi_ws281x
+import rpi_ws281x
 
 CONFIG_ENV_VAR = 'XMAS_LIGHTS_CONFIG'
 UNIX_SOCKET_PATH = '/tmp/xmas-lights.ws.sock'
 DEFAULT_DIR = '/var/lib/xmas-lights'
 
 patterns_file = pathlib.Path(f'{DEFAULT_DIR}/patterns.json')
-connected_websockets = set()
+connected_websockets: set[websockets.WebSocketServerProtocol] = set()
 data = {}
 schedule_timer_handle = None
 
@@ -320,8 +320,8 @@ async def main(config: AppConfig):
     pathlib.Path(patterns_file).parent.mkdir(parents=True, exist_ok=True)
     read_patterns_file()
 
-    active_plugins: list[plugins.plugin.Plugin] = []
-    external_globals = {}
+    active_plugins: list[plugins.BasePlugin] = []
+    external_globals: dict[str, typing.Callable] = {}
     for name, plugin_config in config.plugins:
         if plugin_config is not None and plugin_config.enabled:
             plugin_path = pathlib.Path(config.plugins_dir, name)
@@ -341,7 +341,7 @@ async def main(config: AppConfig):
             line_number,
             mark_message,
         ),
-        led_strip=rpi_ws281x.PixelStrip(config.led_count, 18, strip_type=rpi_ws281x.WS2811_STRIP_RGB),
+        led_strip=rpi_ws281x.PixelStrip(config.led_count, 18, strip_type=rpi_ws281x.ws.WS2811_STRIP_RGB),
         external_globals=external_globals,
     )
 

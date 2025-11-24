@@ -12,7 +12,15 @@ dependencies = [
 [dependency-groups]
 prod = ["rpi_ws281x~=5.0"]
 dev = [
+    "mypy>=1.18.2",
+    "rpi-ws281x-mock>=0.2.2",
     "ruff>=0.14.2",
+    "types-requests>=2.32.4.20250913",
+]
+
+[tool.mypy]
+plugins = [
+    "pydantic.mypy"
 ]
 
 [tool.ruff]

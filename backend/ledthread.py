@@ -9,7 +9,7 @@ import typing
 import numpy
 import requests
 
-import rpi_ws281x_proxy as rpi_ws281x
+import rpi_ws281x
 
 
 class _ScriptException(Exception):
@@ -22,12 +22,12 @@ class LEDThread(threading.Thread):
     def __init__(
             self,
             *,
-            error_callback: typing.Callable[[typing.Any, str, int, str], typing.NoReturn],
+            error_callback: typing.Callable[[typing.Any, str, int | None, str | None], typing.Any],
             led_strip: rpi_ws281x.PixelStrip,
-            external_globals: dict[str, typing.Callable] = None,
+            external_globals: dict[str, typing.Callable] | None = None,
     ):
         super().__init__()
-        self.__queue = queue.Queue()
+        self.__queue: queue.Queue = queue.Queue()
         self.__error_callback = error_callback
         self.__led_strip = led_strip
         self.calls = 0
@@ -212,8 +212,8 @@ class LEDThread(threading.Thread):
         current_pattern = None
         enabled = False
         script = None
-        start_time = 0
-        global_scope = {}
+        start_time: float = 0
+        global_scope: dict[str, typing.Any] = {}
         self.__turn_off()
 
         while True:
@@ -242,7 +242,7 @@ class LEDThread(threading.Thread):
 
                 if not enabled or current_pattern is None:
                     self.__turn_off()
-                else:
+                elif script is not None:
                     try:
                         exec(script, global_scope)
                     except BaseException as exception:
@@ -251,15 +251,16 @@ class LEDThread(threading.Thread):
                     if 'result' not in global_scope:
                         raise ValueError("'result' not found in pattern script")
 
+                    result: typing.Sequence[typing.Sequence[int | float]] = global_scope['result']
                     try:
-                        size = len(global_scope['result'])
+                        size = len(result)
                     except TypeError:
                         raise TypeError("'result' must be an iterable (e.g. list or tuple)")
 
                     if size > self.__led_strip.size:
                         raise ValueError(f"'result' ({size}) is bigger than number of LEDs ({self.__led_strip.size})")
 
-                    for led_index, led in enumerate(global_scope['result']):
+                    for led_index, led in enumerate(result):
                         try:
                             led_len = len(led)
                         except TypeError:
@@ -269,14 +270,18 @@ class LEDThread(threading.Thread):
                             raise ValueError("Each element of 'result' must contain 3 values")
 
                         try:
-                            led = tuple(int(colour) for colour in led)
+                            led_int = tuple(int(colour) for colour in led)
                         except (TypeError, ValueError):
-                            led = None
+                            led_int = None
 
-                        if led is None or any(colour < 0 or colour > 255 for colour in led):
+                        if led_int is None or any(colour < 0 or colour > 255 for colour in led):
                             raise ValueError('Each R, G, B value must be between 0 and 255')
 
-                        self.__led_strip[led_index] = ((led[0] & 0xff) << 16) | ((led[1] & 0xff) << 8) | (led[2] & 0xff)
+                        self.__led_strip[led_index] = (
+                                ((led_int[0] & 0xff) << 16) |
+                                ((led_int[1] & 0xff) << 8) |
+                                ((led_int[2] & 0xff) << 0)
+                        )
                     self.__led_strip.show()
             except BaseException as exception:
                 self.__turn_off()
@@ -289,10 +294,10 @@ class LEDThread(threading.Thread):
                     exception_format = list(traceback_exception.format_exception_only())
 
                     if isinstance(exception, _ScriptException):
-                        if hasattr(traceback_exception, 'lineno'):
+                        if hasattr(traceback_exception, 'lineno') and traceback_exception.lineno is not None:
                             line_number = int(traceback_exception.lineno)
                             exception_format = exception_format[1:]
-                        else:
+                        elif traceback_exception.stack[-1].lineno is not None:
                             line_number = int(traceback_exception.stack[-1].lineno)
 
                         mark_message = ''.join(exception_format).rstrip()

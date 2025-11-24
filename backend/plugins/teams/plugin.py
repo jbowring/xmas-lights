@@ -5,7 +5,7 @@ import threading
 
 import pydantic
 
-import plugins.plugin
+import plugins
 
 from . import graphrequests
 
@@ -22,7 +22,10 @@ class Config(pydantic.BaseModel):
     people_user_info_list: str
 
 
-class Plugin(plugins.plugin.Plugin):
+class Plugin(plugins.BasePlugin):
+    __graph_requests: graphrequests.GraphRequests | None = None
+    __statuses: list | None = None
+
     def __init__(self, plugin_directory: pathlib.Path, config: Config):
         super().__init__()
         self.__plugin_directory = plugin_directory
@@ -34,8 +37,6 @@ class Plugin(plugins.plugin.Plugin):
         self.__people_user_info_list = config.people_user_info_list
         self.__people_site_lists = f'{_GRAPH_V1_ENDPOINT}/sites/{config.people_site}/lists'
 
-        self.__graph_requests = None
-        self.__statuses = None
         self.__stop_signal = threading.Event()
 
     def get_exports(self):

@@ -1,7 +1,7 @@
 import threading
 
 
-class Plugin(threading.Thread):
+class BasePlugin(threading.Thread):
     def get_exports(self):
         pass
 
