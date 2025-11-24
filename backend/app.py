@@ -15,10 +15,10 @@ import pydantic
 import pydantic_settings
 import websockets
 
+import ledthread
 import plugins.plugin
-import plugins.teams.plugin
+import plugins.teams
 import rpi_ws281x_proxy as rpi_ws281x
-from led_thread import LEDThread
 
 CONFIG_ENV_VAR = 'XMAS_LIGHTS_CONFIG'
 UNIX_SOCKET_PATH = '/tmp/xmas-lights.ws.sock'
@@ -31,7 +31,7 @@ schedule_timer_handle = None
 
 
 class PluginsConfig(pydantic.BaseModel):
-    teams: plugins.teams.plugin.Config | None = None
+    teams: plugins.teams.Config | None = None
 
 
 class AppConfig(pydantic_settings.BaseSettings):
@@ -175,7 +175,7 @@ def update_pattern(request, led_thread):
         # return "Incomplete request", 400  # TODO handle error
 
 
-async def websocket_handler(websocket: websockets.WebSocketServerProtocol, led_thread: LEDThread):
+async def websocket_handler(websocket: websockets.WebSocketServerProtocol, led_thread: ledthread.LEDThread):
     connected_websockets.add(websocket)
     try:
         await websocket.send(json.dumps(data, default=json_serialise))
@@ -326,14 +326,14 @@ async def main(config: AppConfig):
         if plugin_config is not None and plugin_config.enabled:
             plugin_path = pathlib.Path(config.plugins_dir, name)
             plugin_path.mkdir(parents=True, exist_ok=True)
-            plugin_thread = importlib.import_module(f'plugins.{name}.plugin').Plugin(plugin_path, plugin_config)
+            plugin_thread = importlib.import_module(f'plugins.{name}').Plugin(plugin_path, plugin_config)
 
             external_globals |= plugin_thread.get_exports()
             plugin_thread.start()
             active_plugins.append(plugin_thread)
 
     loop = asyncio.get_running_loop()
-    led_thread = LEDThread(
+    led_thread = ledthread.LEDThread(
         error_callback=lambda pattern_id, home_popover, line_number, mark_message: loop.call_soon_threadsafe(
             process_error,
             pattern_id,

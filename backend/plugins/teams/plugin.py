@@ -6,7 +6,8 @@ import threading
 import pydantic
 
 import plugins.plugin
-import plugins.teams.graphrequests as graph_requests
+
+from . import graphrequests
 
 _GRAPH_V1_ENDPOINT = 'https://graph.microsoft.com/v1.0'
 _GRAPH_BETA_ENDPOINT = 'https://graph.microsoft.com/beta'
@@ -172,13 +173,13 @@ class Plugin(plugins.plugin.Plugin):
 
         while not self.__stop_signal.is_set():
             try:
-                self.__graph_requests = graph_requests.GraphRequests(
+                self.__graph_requests = graphrequests.GraphRequests(
                     self.__tenant_id,
                     self.__client_id,
                     self.__cache_write,
                     refresh_token,
                 )
-            except graph_requests.RequestException as exception:
+            except graphrequests.RequestException as exception:
                 print('Request exception while authenticating:', exception, file=sys.stderr)
             else:
                 break
@@ -186,7 +187,7 @@ class Plugin(plugins.plugin.Plugin):
         while not self.__stop_signal.is_set():
             try:
                 users = self.__get_user_list()
-            except graph_requests.RequestException as exception:
+            except graphrequests.RequestException as exception:
                 print('Request exception while getting user list:', exception, file=sys.stderr)
             else:
                 break
@@ -194,7 +195,7 @@ class Plugin(plugins.plugin.Plugin):
         while not self.__stop_signal.is_set():
             try:
                 self.__get_presences(users)
-            except graph_requests.RequestException as exception:
+            except graphrequests.RequestException as exception:
                 print('Request exception while getting user presences:', exception, file=sys.stderr)
             else:
                 # remove users that don't have a status
