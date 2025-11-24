@@ -4,6 +4,7 @@ set -euxo pipefail
 
 APP_NAME="xmas-lights"
 CURRENT_DIR=$(realpath "$(dirname "$0")")
+CONFIG_DIR="/var/lib/xmas-lights"
 CONFIG_FILE="$CONFIG_DIR/config.toml"
 
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -35,7 +36,7 @@ Description=Xmas Lights Service
 After=time-sync.service
 
 [Service]
-ExecStart="$CURRENT_DIR/.venv/bin/python" -u "$CURRENT_DIR/app.py" --led-count 140
+ExecStart="$CURRENT_DIR/.venv/bin/python" -u "$CURRENT_DIR/app.py" --config "$CONFIG_FILE"
 StandardOutput=journal
 
 [Install]
